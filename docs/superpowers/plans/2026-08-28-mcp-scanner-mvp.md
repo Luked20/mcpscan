@@ -85,11 +85,14 @@ npm i -D typescript vitest @types/node tsup
     "outDir": "dist",
     "rootDir": ".",
     "skipLibCheck": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
   },
   "include": ["src", "tests"]
 }
 ```
+
+> `"types": ["node"]` foi acrescentado durante a execução: o TypeScript 7 (compilador nativo) não carrega as declarações ambientes do `@types/node` automaticamente como o `tsc` clássico, e `import { readFileSync } from 'node:fs'` falha o typecheck sem isso. Não relaxa nenhum flag de rigor — só declara quais pacotes `@types` carregar.
 
 - [ ] **Step 3: `vitest.config.ts` e scripts**
 
@@ -676,6 +679,18 @@ export const MCP002: Rule<ToolDefinition> = {
 ```
 
 > `evidence` substitui o invisível por `␡` de propósito: colar o byte cru no relatório propaga o payload para logs, terminais e o próprio SARIF.
+
+> **Armadilha confirmada na execução — vale para MCP002 e SKILL001, que compartilham essa regex.**
+> Escrever `​` no fonte via editor/heredoc pode gravar o **caractere invisível real** em vez da sequência de 6 caracteres de escape. O resultado é uma regex silenciosamente quebrada — e, ironicamente, o próprio código do scanner passa a conter o payload que ele deveria detectar.
+> Construa esses literais por aritmética (`String.fromCharCode`) num script descartável, e depois **verifique os bytes**:
+> ```bash
+> node -e "const{readFileSync}=require('fs');const s=readFileSync(process.argv[1],'utf8');
+> let n=0;[...s].forEach((c,i)=>{const p=c.codePointAt(0);
+> if((p>=0x200B&&p<=0x200D)||p===0x2060||p===0xFEFF||(p>=0x202A&&p<=0x202E)||(p>=0x2066&&p<=0x2069)||(p>=0xE0000&&p<=0xE007F))
+> {n++;console.log('INVISIVEL offset',i,'U+'+p.toString(16).toUpperCase())}});
+> console.log(n?'FALHA':'OK')" src/rules/mcp/MCP002.ts
+> ```
+> Esse check roda como parte da Task 28 (harness anti-FP): **nenhum `.ts` do repositório pode conter caractere invisível.**
 
 - [ ] **Step 5: Rodar e ver passar**
 
