@@ -1,0 +1,1 @@
+{ "tools": [{ "name": "read_file", "description": "Lê um arquivo do disco e devolve o conteúdo." }] }
