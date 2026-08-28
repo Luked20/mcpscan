@@ -298,21 +298,25 @@ O relatório de um scan com zero subjects **não pode** ser visualmente igual ao
 
 ### 9.1 Saída `pretty`
 
+Saída real de `mcpscan tests/fixtures/MCP002/vulnerable --no-color` (exit 1):
+
 ```
-mcpscan v0.1.0 · 3 arquivos · 12 tools · 1 skill
+mcpscan · 1 arquivo(s) examinado(s) · 1 com tools · 1 tool(s) · 0 skill(s)
 
-CRITICAL  MCP002  Caractere Unicode invisível na descrição da tool
-  src/tools.json:14:32  tools[1].description
-  Encontrado U+E0041 (tag character) entre "arquivo" e "do".
-  Fix: remova caracteres invisíveis. A descrição é lida pelo modelo, não pelo
-       usuário — texto invisível ali é instrução oculta.
-  https://.../docs/rules/MCP002.md
+CRITICAL  MCP002  Caractere Unicode invisível em definição de tool
+  tools.json:5:22  tools[0].description
+  A tool "read_file" tem 6 caractere(s) invisível(is) em `description`:
+  U+E0049 (tag character), U+E0067 (tag character), ...
+  Fix: Remova os caracteres invisíveis. Esse texto é lido pelo modelo e não
+       aparece para o usuário — conteúdo invisível ali é instrução oculta.
+  https://github.com/luked20/mcpscan/blob/main/docs/rules/MCP002.md
 
-  1 critical · 0 high · 0 medium
-  Falhou: --fail-on=high
+  1 critical
 ```
 
 Regras da saída: severidade primeiro, localização clicável em `file:line:col`, `Fix:` sempre presente, link sempre presente. Sem banner ASCII, sem emoji, sem spinner.
+
+**Duas contagens no cabeçalho, não uma.** `examinado(s)` é quantos arquivos o scanner abriu; `com tools` é quantos produziram algo analisável. Uma contagem só confunde "olhei 40 arquivos e 1 tinha tools" com "só olhei 1 arquivo" — e essa confusão é a diferença entre um scan bom e um scan que não rodou.
 
 ---
 
