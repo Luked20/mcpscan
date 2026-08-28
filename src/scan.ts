@@ -36,12 +36,21 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
     if (opts.rules?.length) active = active.filter((r) => opts.rules!.includes(r.id));
     if (opts.disable?.length) active = active.filter((r) => !opts.disable!.includes(r.id));
 
-    const findings = runRules(target, active, HELP_BASE_URI);
+    const { findings, failures } = runRules(target, active, HELP_BASE_URI);
     const stats = {
       files: new Set(target.tools.map((t) => t.origin.file)).size,
       tools: target.tools.length,
       skills: target.skills.length,
     };
+    // Uma regra que lançou é "não consegui olhar", não "está limpo". Os findings já
+    // coletados voltam para um relatório parcial, mas o exit code diz 2.
+    if (failures.length > 0) {
+      const detail = failures
+        .map((f) => `${f.ruleId} (${f.subjectCount} subjects): ${f.message}`)
+        .join('; ');
+      return { findings, exitCode: 2, stats, error: `regra(s) falharam durante o scan: ${detail}` };
+    }
+
     const fails = opts.failOn !== 'none' && findings.some((f) => atLeast(f.severity, opts.failOn as Severity));
     return { findings, exitCode: fails ? 1 : 0, stats };
   } catch (err) {

@@ -87,14 +87,29 @@ export interface ScanContext {
 
 export type RuleSubjectKind = 'tool' | 'server' | 'skill' | 'sourceFile' | 'target';
 
-export interface Rule<S = unknown> {
+/** O que uma regra devolve. O engine preenche o resto a partir da metadata da regra. */
+export type PartialFinding = Omit<Finding,
+  'ruleId' | 'title' | 'severity' | 'confidence' | 'owasp' | 'helpUri' | 'provenance'
+>;
+
+interface RuleMeta {
   id: string;
   title: string;
   severity: Severity;
   confidence: Confidence;
   owasp?: string;
-  appliesTo: RuleSubjectKind;
-  check(subject: S, ctx: ScanContext): Omit<Finding,
-    'ruleId' | 'title' | 'severity' | 'confidence' | 'owasp' | 'helpUri' | 'provenance'
-  >[];
 }
+
+/**
+ * União discriminada por `appliesTo` — não um genérico livre `Rule<S>`.
+ *
+ * Com `Rule<S>`, uma regra declarando `appliesTo: 'tool'` e tipada `Rule<SkillDefinition>`
+ * compilava sem erro (bivariância de parâmetro em método) e só estourava em runtime,
+ * onde o engine transformava a exceção em falso-limpo. A união move o erro para o typecheck.
+ */
+export type Rule =
+  | (RuleMeta & { appliesTo: 'tool';       check(subject: ToolDefinition,   ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'server';     check(subject: ServerDefinition, ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'skill';      check(subject: SkillDefinition,  ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'sourceFile'; check(subject: SourceFile,       ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'target';     check(subject: ScanTarget,       ctx: ScanContext): PartialFinding[] });

@@ -1,4 +1,4 @@
-import type { Finding, Rule, ToolDefinition } from '../../core/types.js';
+import type { PartialFinding, Rule, ToolDefinition } from '../../core/types.js';
 
 /** Zero-width, word joiner, BOM, bidi overrides, e tag characters (U+E0000-E007F). */
 const INVISIBLE = /[\u200B\u200C\u200D\u2060\uFEFF\u202A-\u202E\u2066-\u2069]|[\u{E0000}-\u{E007F}]/gu;
@@ -23,19 +23,15 @@ function textFields(tool: ToolDefinition): Array<[string, string]> {
   return out;
 }
 
-type MCP002Finding = Omit<Finding,
-  'ruleId' | 'title' | 'severity' | 'confidence' | 'owasp' | 'helpUri' | 'provenance'
->;
-
-export const MCP002: Rule<ToolDefinition> = {
+export const MCP002 = {
   id: 'MCP002',
   title: 'Caractere Unicode invisível em definição de tool',
   severity: 'critical',
   confidence: 'high',
   owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'tool',
-  check(tool) {
-    const findings: MCP002Finding[] = [];
+  check(tool: ToolDefinition) {
+    const findings: PartialFinding[] = [];
     for (const [field, value] of textFields(tool)) {
       INVISIBLE.lastIndex = 0;
       const hits = [...value.matchAll(INVISIBLE)];
@@ -57,4 +53,4 @@ export const MCP002: Rule<ToolDefinition> = {
     }
     return findings;
   },
-};
+} satisfies Rule;
