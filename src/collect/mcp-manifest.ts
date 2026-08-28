@@ -2,16 +2,32 @@ import { parseTree, findNodeAtLocation, getNodeValue, type Node } from 'jsonc-pa
 import { makeLocation, createLineIndex } from '../core/location.js';
 import type { ToolDefinition, SourceLocation } from '../core/types.js';
 
-/** 'tools[0].inputSchema.properties.path' -> ['tools', 0, 'inputSchema', 'properties', 'path'] */
-export function parseJsonPath(path: string): (string | number)[] {
+/**
+ * 'tools[0].inputSchema.properties.path' -> ['tools', 0, 'inputSchema', 'properties', 'path']
+ *
+ * Falha fechado: qualquer coisa que não case por inteiro devolve `null`, para o
+ * chamador cair no `origin`. Devolver um caminho *parcial* era pior que não
+ * localizar nada — 'tools[0].name[' virava ['tools', 0], e o finding aparecia na
+ * posição do objeto `tools[0]` inteiro carimbado com o jsonPath errado: plausível,
+ * autoritativo no SARIF, e errado.
+ *
+ * Limitação conhecida (não resolvida de propósito): uma chave JSON legal contendo
+ * ponto — `properties["my.path"]`, comum em schemas de path — é dividida errado e
+ * simplesmente não resolve, caindo no `origin`.
+ */
+export function parseJsonPath(path: string): (string | number)[] | null {
+  if (path === '') return null;
   const out: (string | number)[] = [];
   for (const part of path.split('.')) {
-    const m = /^([^[\]]*)((\[\d+\])*)$/.exec(part);
-    if (!m) return out;
-    if (m[1]) out.push(m[1]);
-    for (const i of m[2]!.matchAll(/\[(\d+)\]/g)) out.push(Number(i[1]));
+    const m = /^([^[\]]*)((?:\[\d+\])*)$/.exec(part);
+    if (!m) return null;
+    const [, key = '', brackets = ''] = m;
+    if (key) out.push(key);
+    for (const i of brackets.matchAll(/\[(\d+)\]/g)) out.push(Number(i[1]));
+    // Um segmento vazio ('a..b', ou o próprio '.') não produz nada: caminho inválido.
+    if (!key && !brackets) return null;
   }
-  return out;
+  return out.length > 0 ? out : null;
 }
 
 export function collectManifest(file: string, text: string): ToolDefinition[] {
@@ -28,7 +44,9 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
 
   const lineStarts = createLineIndex(text);
   const locate = (jsonPath: string, fallback: SourceLocation): SourceLocation => {
-    const node = findNodeAtLocation(root!, parseJsonPath(jsonPath));
+    const segments = parseJsonPath(jsonPath);
+    if (!segments) return fallback;
+    const node = findNodeAtLocation(root!, segments);
     if (!node) return fallback;
     return makeLocation(file, text, node.offset, node.length, jsonPath, lineStarts);
   };
