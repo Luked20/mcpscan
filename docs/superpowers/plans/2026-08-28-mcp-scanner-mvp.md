@@ -681,7 +681,7 @@ export const MCP002: Rule<ToolDefinition> = {
 > `evidence` substitui o invisível por `␡` de propósito: colar o byte cru no relatório propaga o payload para logs, terminais e o próprio SARIF.
 
 > **Armadilha confirmada na execução — vale para MCP002 e SKILL001, que compartilham essa regex.**
-> Escrever `​` no fonte via editor/heredoc pode gravar o **caractere invisível real** em vez da sequência de 6 caracteres de escape. O resultado é uma regex silenciosamente quebrada — e, ironicamente, o próprio código do scanner passa a conter o payload que ele deveria detectar.
+> Escrever `\u200B` no fonte via editor/heredoc pode gravar o **caractere invisível real** em vez da sequência de 6 caracteres de escape. O resultado é uma regex silenciosamente quebrada — e, ironicamente, o próprio código do scanner passa a conter o payload que ele deveria detectar.
 > Construa esses literais por aritmética (`String.fromCharCode`) num script descartável, e depois **verifique os bytes**:
 > ```bash
 > node -e "const{readFileSync}=require('fs');const s=readFileSync(process.argv[1],'utf8');
