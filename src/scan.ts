@@ -30,9 +30,9 @@ export interface ScanResult {
   error?: string;
 }
 
-const EMPTY_STATS: ScanStats = { filesExamined: 0, filesWithTools: 0, tools: 0, skills: 0 };
+const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tools: 0, skills: 0 });
 
-const fail = (error: string, findings: Finding[] = [], stats = EMPTY_STATS): ScanResult =>
+const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
 
 /** Nada descoberto não é "limpo": é "apontei para o lugar errado". */
@@ -58,8 +58,9 @@ function selectRules(opts: ScanOptions): Rule[] | string {
 }
 
 export async function scan(opts: ScanOptions): Promise<ScanResult> {
-  if (!isFailOn(opts.failOn)) {
-    return fail(`--fail-on inválido: ${String(opts.failOn)}. Use: ${FAIL_ON_VALUES.join(' | ')}`);
+  const failOn = opts.failOn;
+  if (!isFailOn(failOn)) {
+    return fail(`--fail-on inválido: ${String(failOn)}. Use: ${FAIL_ON_VALUES.join(' | ')}`);
   }
 
   const active = selectRules(opts);
@@ -99,7 +100,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       return fail(`regra(s) falharam durante o scan: ${detail}`, findings, stats);
     }
 
-    const fails = opts.failOn !== 'none' && findings.some((f) => atLeast(f.severity, opts.failOn as Severity));
+    const fails = failOn !== 'none' && findings.some((f) => atLeast(f.severity, failOn));
     return { findings, exitCode: fails ? 1 : 0, stats };
   } catch (err) {
     return fail((err as Error).message);
