@@ -9,15 +9,25 @@ export function createLineIndex(text: string): number[] {
   return starts;
 }
 
-export function offsetToPosition(lineStarts: number[], offset: number): { line: number; column: number } {
+/**
+ * `textLength` é obrigatório de propósito: sem ele um offset fora do texto vira
+ * uma posição inventada (offset -5 -> coluna -4; offset 999 num texto de 3 chars
+ * -> coluna 998) que o SARIF anota como se fosse real.
+ */
+export function offsetToPosition(
+  lineStarts: number[],
+  offset: number,
+  textLength: number,
+): { line: number; column: number } {
+  const clamped = offset < 0 ? 0 : offset > textLength ? textLength : offset;
   let lo = 0;
   let hi = lineStarts.length - 1;
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1;
-    if (lineStarts[mid]! <= offset) lo = mid;
+    if (lineStarts[mid]! <= clamped) lo = mid;
     else hi = mid - 1;
   }
-  return { line: lo + 1, column: offset - lineStarts[lo]! + 1 };
+  return { line: lo + 1, column: clamped - lineStarts[lo]! + 1 };
 }
 
 export function makeLocation(
@@ -28,8 +38,8 @@ export function makeLocation(
   jsonPath?: string,
   lineStarts = createLineIndex(text),
 ): SourceLocation {
-  const start = offsetToPosition(lineStarts, offset);
-  const end = offsetToPosition(lineStarts, offset + length);
+  const start = offsetToPosition(lineStarts, offset, text.length);
+  const end = offsetToPosition(lineStarts, offset + length, text.length);
   return {
     file,
     line: start.line,
