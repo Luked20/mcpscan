@@ -134,9 +134,27 @@ interface Rule<T> {
 
 Regras são registradas num array explícito em `src/rules/index.ts`. O engine itera `subjects × rules` e concatena findings. Sem herança, sem DI, sem descoberta dinâmica de plugin no MVP — um array explícito é mais fácil de ler, de testar e de tree-shakear.
 
-### 6.1 Invariante anti-falso-positivo
+### 6.1 Teto de confiança
 
 O engine aplica um teto: **uma regra com `confidence: 'low'` nunca emite severidade acima de `medium`; só `confidence: 'high'` pode emitir `critical`.** Isso é verificado por teste no registry, não por disciplina humana.
+
+> **O que este teto NÃO é.** Ele restringe a *metadata que o autor da regra escreve*, não a precisão real da regra. O MCP002 se declarava `critical`/`high` — o teto era no-op — e mesmo assim tinha quatro classes de falso positivo (§7.2). O teto impede publicar `critical`/`low`; ele **não** é a defesa contra falso positivo. A defesa é a largura das fixtures negativas por regra (§8) e o corpus de regressão.
+
+### 6.2 `appliesTo` e o tipo do subject
+
+`Rule` é uma **união discriminada por `appliesTo`**, não um genérico livre `Rule<S>`:
+
+```ts
+export type Rule =
+  | { appliesTo: 'tool';       check(s: ToolDefinition,   ctx: ScanContext): PartialFinding[] }
+  | { appliesTo: 'skill';      check(s: SkillDefinition,  ctx: ScanContext): PartialFinding[] }
+  | { appliesTo: 'server';     check(s: ServerDefinition, ctx: ScanContext): PartialFinding[] }
+  | { appliesTo: 'sourceFile'; check(s: SourceFile,       ctx: ScanContext): PartialFinding[] }
+  | { appliesTo: 'target';     check(s: ScanTarget,       ctx: ScanContext): PartialFinding[] }
+  ;  // + os campos comuns id/title/severity/confidence/owasp
+```
+
+Com `Rule<S>` genérico, uma regra declarando `appliesTo: 'tool'` mas tipada como `Rule<SkillDefinition>` **compilava sem erro** (bivariância de parâmetro em método), o engine passava um `ToolDefinition`, e `subject.body.slice()` estourava em runtime — direto para o falso-limpo do §9. A união move esse erro para o typecheck. `PartialFinding` é exportado de `core/types.ts` uma única vez: repetir o `Omit<...>` em cada regra faz uma regra recuperar silenciosamente o direito de definir a própria severidade.
 
 ---
 
@@ -148,7 +166,7 @@ O engine aplica um teto: **uma regra com `confidence: 'low'` nunca emite severid
 
 | ID | Nome | Sev | Conf | O que detecta |
 |---|---|---|---|---|
-| **MCP002** | `hidden-unicode-in-tool` | critical | high | Zero-width (U+200B–200D, U+FEFF), tag chars (U+E0000–E007F), bidi overrides (U+202A–202E, U+2066–2069) em `name`/`description`/schema. → FP ≈ 0: não existe motivo legítimo. **Primeira regra a implementar.** |
+| **MCP002** | `hidden-unicode-in-tool` | critical | high | Caracteres invisíveis em `name`/`description`/schema, com política por classe — ver §7.2. **Primeira regra a implementar.** |
 | **MCP001** | `tool-description-injection` | critical | high | Diretivas dirigidas ao modelo dentro de `description`: `<IMPORTANT>`, "ignore previous instructions", "do not tell the user", "before calling any other tool", "não mencione". → FP: exige padrão imperativo **e** alvo (modelo/usuário), não palavra solta. |
 | **MCP003** | `schema-field-injection` | critical | high | O mesmo padrão do MCP001, mas dentro de `inputSchema.properties.*.description` / `default` / `enum`. Campo de schema é lugar ainda menos legítimo para prosa imperativa. |
 | **MCP004** | `unconstrained-path-parameter` | high | medium | Param `string` cujo nome casa `path\|file\|filename\|dir\|target` **e** sem `pattern`/`enum`/`format` **e** a tool descreve leitura/escrita de arquivo. → FP: as três condições juntas; sem a terceira vira ruído. |
@@ -166,6 +184,40 @@ O engine aplica um teto: **uma regra com `confidence: 'low'` nunca emite severid
 | **SKILL002** | `skill-description-injection` | critical | high | MCP001 aplicado ao `description` do frontmatter — é o campo que o modelo lê sem o usuário ver. |
 | **SKILL003** | `undeclared-capability` | high | medium | Corpo instrui `curl`/`wget`/`rm -rf`/escrita fora do diretório do skill, mas `allowed-tools` no frontmatter não declara a capacidade correspondente. |
 | **SKILL004** | `remote-code-fetch` | high | high | `curl … \| sh`, `iwr … \| iex`, download de `raw.githubusercontent.com` sem commit SHA fixo. |
+
+### 7.2 MCP002 — política por classe de caractere
+
+> **Correção de 2026-08-28.** A primeira especificação desta regra — "sinalize todo U+200B–200D, U+2060, U+FEFF, U+202A–202E, U+2066–2069" — foi implementada e **reprovada na revisão com quatro classes de falso positivo reproduzidas**. Registrado aqui porque o erro é instrutivo: "caractere invisível" parece uma categoria binária e não é.
+>
+> | Entrada legítima | Disparava | Por quê é legítimo |
+> |---|---|---|
+> | `Faz deploy 👩‍💻 rapido` | U+200D | Toda sequência emoji ZWJ usa U+200D |
+> | `می‌شود` (persa) | U+200C | ZWNJ é **ortografia obrigatória** em persa e em conjuntos devanágari |
+> | `اقرأ ⁨read_file⁩ ملف` | U+2068/U+2069 | Isolates são o que o **UAX #9 recomenda** para embutir identificador latino em texto RTL |
+> | `👨‍👩‍👧 🏳️‍🌈` | U+200D | Idem emoji |
+>
+> Um scanner que marca CRITICAL numa descrição em persa perde o usuário na primeira execução.
+
+**Sempre sinalizar** — nenhum uso legítimo em texto lido por máquina:
+
+| Classe | Codepoints |
+|---|---|
+| Tag characters | U+E0000–E007F |
+| Zero-width space / word joiner / BOM no meio da string | U+200B, U+2060, U+FEFF |
+| Overrides bidi | U+202D (LRO), U+202E (RLO) — forçam direção ignorando a classe do caractere; é o vetor do Trojan Source (CVE-2021-42574). Suspeitos mesmo quando balanceados. |
+| Corrida de seletores de variação | ≥ 3 consecutivos em U+FE00–FE0F ou U+E0100–E01EF. Um `U+FE0F` isolado é apresentação de emoji e **não** dispara. |
+
+**Sinalizar só em contexto** — o caractere é legítimo, o uso é que denuncia:
+
+| Classe | Condição para disparar |
+|---|---|
+| ZWJ / ZWNJ (U+200C, U+200D) | Somente quando **ambos** os vizinhos são ASCII/latinos. Entre emoji, ou entre letras árabes/índicas, é uso normal. |
+| Embeddings bidi (U+202A LRE, U+202B RLE / U+202C PDF) | Somente quando **desbalanceados** na string |
+| Isolates bidi (U+2066 LRI, U+2067 RLI, U+2068 FSI / U+2069 PDI) | Somente quando **desbalanceados** na string |
+
+**Nunca sinalizar:** marcas direcionais U+200E (LRM) e U+200F (RLM) — uso corriqueiro e inofensivo em texto bidirecional.
+
+As quatro entradas legítimas da tabela acima são **fixtures negativas obrigatórias** de MCP002.
 
 ### 7.1 Mapeamento para o OWASP MCP Top 10 (2025)
 
@@ -227,9 +279,22 @@ mcpscan [path]                       # default: '.'
 |---|---|
 | 0 | Nenhum finding no nível de `--fail-on` ou acima |
 | 1 | Findings no nível de `--fail-on` ou acima |
-| 2 | Erro de execução (caminho inválido, config inválida, crash) |
+| 2 | Erro de execução — **"não consegui olhar"** |
 
 Distinguir 1 de 2 importa: `1` é "achei problema", `2` é "não consegui olhar". Um CI que trata os dois igual esconde scanner quebrado como se fosse repo limpo.
+
+**Toda condição de exit 2** (lista fechada — a revisão da Fase 1 mostrou que quase todas retornavam 0 silenciosamente):
+
+| Condição | Por que é exit 2, não 0 |
+|---|---|
+| Caminho não existe | Óbvio |
+| Nenhuma regra ativa após `--rules`/`--disable` | Um typo (`--rules MCP02`) desligava o scanner sem sinal |
+| ID de regra desconhecido em `--rules`/`--disable` | Idem |
+| Valor inválido em `--fail-on` ou `--format` | `--fail-on NONE` (maiúsculo) fazia `rank()` devolver `-1` e o limiar aceitar tudo |
+| **Zero subjects descobertos** | Apontar para o diretório errado dava tique verde idêntico a um scan limpo de verdade |
+| **Uma regra lançou exceção** | Regra quebrada virava finding `info`; com `--fail-on high` o CI ficava verde. Um bug em qualquer regra transformava-se em falso-limpo silencioso. |
+
+O relatório de um scan com zero subjects **não pode** ser visualmente igual ao de um scan limpo. `stats` reporta duas contagens distintas: arquivos **examinados** e arquivos que **produziram** tools.
 
 ### 9.1 Saída `pretty`
 
