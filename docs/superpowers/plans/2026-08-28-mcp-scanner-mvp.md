@@ -647,7 +647,7 @@ export const MCP002: Rule<ToolDefinition> = {
   title: 'Caractere Unicode invisível em definição de tool',
   severity: 'critical',
   confidence: 'high',
-  owasp: 'Tool Poisoning',
+  owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'tool',
   check(tool) {
     const findings = [];
@@ -940,7 +940,7 @@ import type { Finding } from '../../src/core/types.js';
 
 const f: Finding = {
   ruleId: 'MCP002', title: 'Caractere Unicode invisível em definição de tool',
-  severity: 'critical', confidence: 'high', owasp: 'Tool Poisoning',
+  severity: 'critical', confidence: 'high', owasp: 'MCP03:2025 – Tool Poisoning',
   location: { file: 'src/tools.json', line: 14, column: 32, endLine: 14, endColumn: 40, jsonPath: 'tools[1].description' },
   message: 'A tool "x" tem 1 caractere invisível.',
   remediation: 'Remova os caracteres invisíveis.',
@@ -1752,7 +1752,7 @@ export const MCP001: Rule<ToolDefinition> = {
   title: 'Instrução dirigida ao modelo na descrição da tool',
   severity: 'critical',
   confidence: 'high',
-  owasp: 'Tool Poisoning',
+  owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'tool',
   check(tool) {
     if (!tool.description) return [];
@@ -1873,7 +1873,7 @@ export const MCP003: Rule<ToolDefinition> = {
   title: 'Instrução dirigida ao modelo dentro do inputSchema',
   severity: 'critical',
   confidence: 'high',
-  owasp: 'Schema Poisoning',
+  owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'tool',
   check(tool) {
     if (!tool.inputSchema) return [];
@@ -1969,7 +1969,7 @@ export const MCP004: Rule<ToolDefinition> = {
   title: 'Parâmetro de caminho sem restrição em tool de arquivo',
   severity: 'high',
   confidence: 'medium',
-  owasp: 'Excessive Agency / Arbitrary File Access',
+  owasp: 'MCP02:2025 – Privilege Escalation via Scope Creep',
   appliesTo: 'tool',
   check(tool) {
     const schema = tool.inputSchema as { properties?: Record<string, Record<string, unknown>> } | undefined;
@@ -2066,7 +2066,7 @@ export const MCP005: Rule<ToolDefinition> = {
   title: 'Parâmetro de comando sem allowlist',
   severity: 'critical',
   confidence: 'medium',
-  owasp: 'Remote Code Execution',
+  owasp: 'MCP05:2025 – Command Injection & Execution',
   appliesTo: 'tool',
   check(tool) {
     const props = (tool.inputSchema as { properties?: Record<string, Record<string, unknown>> } | undefined)?.properties;
@@ -2196,7 +2196,7 @@ export const MCP007: Rule<ServerDefinition> = {
   title: 'Origem do MCP server não fixada',
   severity: 'medium',
   confidence: 'high',
-  owasp: 'Shadow Servers / Supply Chain',
+  owasp: 'MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering',
   appliesTo: 'server',
   check(server) {
     const findings = [];
@@ -2264,7 +2264,7 @@ export const MCP009: Rule<ServerDefinition> = {
   title: 'Credencial embutida na configuração do MCP server',
   severity: 'high',
   confidence: 'high',
-  owasp: 'Credential Exposure',
+  owasp: 'MCP01:2025 – Token Mismanagement & Secret Exposure',
   appliesTo: 'server',
   check(server) {
     const findings = [];
@@ -2487,7 +2487,7 @@ export const SKILL002: Rule<SkillDefinition> = {
   title: 'Instrução dirigida ao modelo na description do skill',
   severity: 'critical',
   confidence: 'high',
-  owasp: 'Prompt Injection',
+  owasp: 'MCP10:2025 – Context Injection & Over-Sharing',
   appliesTo: 'skill',
   check(skill) {
     if (!skill.description) return [];
@@ -2528,7 +2528,7 @@ export const SKILL001: Rule<SkillDefinition> = {
   title: 'Instrução oculta no corpo do skill',
   severity: 'critical',
   confidence: 'high',
-  owasp: 'Prompt Injection',
+  owasp: 'MCP10:2025 – Context Injection & Over-Sharing',
   appliesTo: 'skill',
   check(skill) {
     const findings = [];
@@ -2634,7 +2634,7 @@ export const SKILL003: Rule<SkillDefinition> = {
   title: 'Skill usa capacidade não declarada em allowed-tools',
   severity: 'high',
   confidence: 'medium',
-  owasp: 'Excessive Agency',
+  owasp: 'MCP02:2025 – Privilege Escalation via Scope Creep',
   appliesTo: 'skill',
   check(skill) {
     // Sem allowed-tools não há declaração para contradizer: outra regra, não esta.
@@ -2676,7 +2676,7 @@ export const SKILL004: Rule<SkillDefinition> = {
   title: 'Skill baixa e executa código remoto',
   severity: 'high',
   confidence: 'high',
-  owasp: 'Supply Chain',
+  owasp: 'MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering',
   appliesTo: 'skill',
   check(skill) {
     const findings = [];
@@ -2778,7 +2778,7 @@ export const MCP006: Rule<ScanTarget> = {
   title: 'Tool sobrepõe ou instrui sobre outra tool',
   severity: 'high',
   confidence: 'medium',
-  owasp: 'Tool Shadowing',
+  owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'target',
   check(target) {
     const findings = [];
@@ -2919,7 +2919,7 @@ export const MCP008: Rule<SourceFile> = {
   title: 'Sink perigoso no código do MCP server',
   severity: 'high',
   confidence: 'medium',
-  owasp: 'Remote Code Execution',
+  owasp: 'MCP05:2025 – Command Injection & Execution',
   appliesTo: 'sourceFile',
   check(sf) {
     if (sf.language !== 'ts' && sf.language !== 'js') return [];

@@ -95,7 +95,7 @@ interface Finding {
   title: string;
   severity: Severity;
   confidence: Confidence;
-  owasp?: string;                     // 'Tool Poisoning'
+  owasp?: string;                     // 'MCP03:2025 – Tool Poisoning'
   location: SourceLocation;
   message: string;                    // O QUE está errado, em 1 frase
   remediation: string;                // O QUE FAZER, em 1-2 frases, acionável
@@ -166,6 +166,27 @@ O engine aplica um teto: **uma regra com `confidence: 'low'` nunca emite severid
 | **SKILL002** | `skill-description-injection` | critical | high | MCP001 aplicado ao `description` do frontmatter — é o campo que o modelo lê sem o usuário ver. |
 | **SKILL003** | `undeclared-capability` | high | medium | Corpo instrui `curl`/`wget`/`rm -rf`/escrita fora do diretório do skill, mas `allowed-tools` no frontmatter não declara a capacidade correspondente. |
 | **SKILL004** | `remote-code-fetch` | high | high | `curl … \| sh`, `iwr … \| iex`, download de `raw.githubusercontent.com` sem commit SHA fixo. |
+
+### 7.1 Mapeamento para o OWASP MCP Top 10 (2025)
+
+IDs verificados em 2026-08-28 contra <https://owasp.org/www-project-mcp-top-10/>. O campo `owasp` de cada regra usa a string exata desta tabela — nunca um rótulo inventado.
+
+| OWASP | Título oficial | Regras |
+|---|---|---|
+| `MCP01:2025` | Token Mismanagement & Secret Exposure | MCP009 |
+| `MCP02:2025` | Privilege Escalation via Scope Creep | MCP004, SKILL003 |
+| `MCP03:2025` | Tool Poisoning | MCP001, MCP002, MCP003, MCP006 |
+| `MCP04:2025` | Software Supply Chain Attacks & Dependency Tampering | MCP007, SKILL004 |
+| `MCP05:2025` | Command Injection & Execution | MCP005, MCP008 |
+| `MCP06:2025` | Intent Flow Subversion | — |
+| `MCP07:2025` | Insufficient Authentication & Authorization | — |
+| `MCP08:2025` | Lack of Audit and Telemetry | — (fora de escopo: é camada enterprise) |
+| `MCP09:2025` | Shadow MCP Servers | — **lacuna conhecida, ver abaixo** |
+| `MCP10:2025` | Context Injection & Over-Sharing | SKILL001, SKILL002 |
+
+"Schema poisoning" e "tool shadowing" **não são categorias próprias** no OWASP MCP Top 10 — são sub-técnicas de `MCP03:2025 – Tool Poisoning`. MCP003 e MCP006 mapeiam para MCP03 e distinguem o caso pelo `title` da regra.
+
+**Lacuna assumida no MVP — `MCP09:2025 Shadow MCP Servers`.** O CLAUDE.md pede "shadow servers" no escopo, mas o MVP não cobre de verdade: MCP007 detecta *proveniência não fixada* (supply chain, MCP04), o que é adjacente mas diferente. Detectar shadow server de verdade exige comparar o que está declarado com o que realmente responde — ou seja, depende do collector `mcp-live` (`--connect`), que ficou fora do MVP por executar código não confiável. Documentar a lacuna no README em vez de dar a entender que está coberta.
 
 Cada regra tem `docs/rules/<ID>.md` com: exemplo vulnerável, exemplo limpo, por que é risco, como corrigir, como suprimir. O `helpUri` do finding aponta pra lá.
 
@@ -324,6 +345,10 @@ action.yml
 
 ## 15. Pontos que precisam de verificação antes de codar
 
-- **IDs oficiais do OWASP MCP Top 10.** O CLAUDE.md cita as categorias por nome (tool poisoning, schema poisoning, tool shadowing, shadow servers) mas não os identificadores. Confirmar a numeração no documento OWASP atual antes de gravar `owasp:` em cada regra — número errado num relatório de segurança é pior que número nenhum.
+- ~~**IDs oficiais do OWASP MCP Top 10.**~~ **Resolvido em 2026-08-28:** lista verificada em <https://owasp.org/www-project-mcp-top-10/>, mapeamento completo na §7.1. Descoberta relevante: "schema poisoning" e "tool shadowing" não são categorias próprias — são sub-técnicas de `MCP03:2025`. E `MCP09:2025 Shadow MCP Servers` ficou sem regra (§7.1).
 - ~~**Nome no npm.**~~ **Resolvido em 2026-08-28:** `mcp-scan` está tomado (v2.0.6, Invariant Labs — scanner de MCP concorrente direto) e `mcp-scanner` também. Nome escolhido: **`mcpscan`** (livre). Binário `mcpscan`, diretiva `mcpscan-disable-next-line`, config `mcpscan.config.json`.
-- **Formato canônico de `SKILL.md`.** Confirmar as chaves reais de frontmatter (`name`, `description`, `allowed-tools`) contra a spec atual de agent skills antes de escrever `collect/skill-md.ts`.
+- ~~**Formato canônico de `SKILL.md`.**~~ **Resolvido em 2026-08-28**, verificado contra 60 SKILL.md reais instalados. Achados que mudam a implementação:
+  - `name` e `description` estão em 100% delas; **`allowed-tools` não aparece em nenhuma skill de topo** — só em skills de plugin. Confirma que SKILL003 deve retornar `[]` quando o campo está ausente: ausência não é declaração falsa.
+  - O formato real de `allowed-tools` é **lista YAML**, não string com vírgulas. `toArray()` aceita ambos.
+  - As entradas são **escopadas**: `Bash(git *)`, `Agent(nome)`, `Workflow(x)`. O `split('(')[0]` do SKILL003 normaliza. Consequência aceita: um skill que declara `Bash(ls *)` e no corpo roda `curl` **não** é detectado, porque `Bash` consta como declarado. Sub-detecção deliberada — errar para o lado do falso negativo, não do falso positivo.
+  - Existem também `disallowed-tools`, `user-invocable` e `disable-model-invocation`. Nenhum afeta o MVP.
