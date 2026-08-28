@@ -64,6 +64,8 @@ export interface ScanTarget {
   tools: ToolDefinition[];   // todas as tools, de qualquer origem
   skills: SkillDefinition[];
   sourceFiles: SourceFile[];
+  /** Arquivos lidos com sucesso — não "arquivos que produziram tools". */
+  filesExamined: number;
 }
 
 export interface Finding {

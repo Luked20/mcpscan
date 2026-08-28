@@ -11,7 +11,19 @@ describe('discover', () => {
     expect(t.tools[0]!.origin.file.includes('\\')).toBe(false);
   });
   it('não explode em diretório sem nada relevante', async () => {
-    const t = await discover('docs');
+    const t = await discover('tests/fixtures/empty');
     expect(t.tools).toEqual([]);
+  });
+  it('escaneia um arquivo passado diretamente', async () => {
+    const t = await discover('tests/fixtures/MCP002/vulnerable/tools.json');
+    expect(t.tools.map((x) => x.name)).toContain('read_file');
+  });
+  it('usa o basename como caminho relativo do arquivo único', async () => {
+    const t = await discover('tests/fixtures/MCP002/vulnerable/tools.json');
+    expect(t.tools[0]!.origin.file).toBe('tools.json');
+  });
+  it('conta os arquivos examinados, não só os que produziram tools', async () => {
+    const t = await discover('tests/fixtures/MCP002/vulnerable');
+    expect(t.filesExamined).toBe(1);
   });
 });

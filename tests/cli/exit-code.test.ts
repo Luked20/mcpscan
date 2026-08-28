@@ -17,6 +17,11 @@ describe('scan + exit code', () => {
     expect(r.findings.length).toBeGreaterThan(0);
     expect(r.exitCode).toBe(0);
   });
+  it('retorna 1 quando o alvo é o próprio arquivo', async () => {
+    const r = await scan({ path: 'tests/fixtures/MCP002/vulnerable/tools.json', failOn: 'high' });
+    expect(r.findings.length).toBeGreaterThan(0);
+    expect(r.exitCode).toBe(1);
+  });
   it('retorna 2 em caminho inexistente', async () => {
     const r = await scan({ path: 'nao/existe', failOn: 'high' });
     expect(r.exitCode).toBe(2);
