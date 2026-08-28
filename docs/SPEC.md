@@ -266,10 +266,10 @@ Severidade → SARIF `level`: critical/high → `error`, medium → `warning`, l
 
 ## 11. GitHub Action
 
-`action.yml` na raiz, para uso direto `uses: <user>/mcpscan@v1`:
+`action.yml` na raiz, para uso direto `uses: luked20/mcpscan@v1`:
 
 ```yaml
-- uses: <user>/mcpscan@v1
+- uses: luked20/mcpscan@v1
   with:
     path: .
     fail-on: high

@@ -5,7 +5,7 @@ import { RULES } from './rules/index.js';
 import { atLeast } from './core/severity.js';
 import type { Finding, Severity } from './core/types.js';
 
-export const HELP_BASE_URI = 'https://github.com/OWNER/mcpscan/blob/main/docs/rules/';
+export const HELP_BASE_URI = 'https://github.com/luked20/mcpscan/blob/main/docs/rules/';
 
 export interface ScanOptions {
   path: string;

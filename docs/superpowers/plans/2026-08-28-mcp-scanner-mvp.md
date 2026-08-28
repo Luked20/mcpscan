@@ -1098,7 +1098,7 @@ import { RULES } from './rules/index.js';
 import { atLeast } from './core/severity.js';
 import type { Finding, Severity } from './core/types.js';
 
-export const HELP_BASE_URI = 'https://github.com/OWNER/mcpscan/blob/main/docs/rules/';
+export const HELP_BASE_URI = 'https://github.com/luked20/mcpscan/blob/main/docs/rules/';
 
 export interface ScanOptions {
   path: string;
@@ -1293,13 +1293,13 @@ export function formatSarif(findings: Finding[], rules: Rule<never>[], version: 
         driver: {
           name: 'mcpscan',
           version,
-          informationUri: 'https://github.com/OWNER/mcpscan',
+          informationUri: 'https://github.com/luked20/mcpscan',
           rules: rules.map((r) => ({
             id: r.id,
             name: r.id,
             shortDescription: { text: r.title },
             fullDescription: { text: r.owasp ? `${r.title} (OWASP MCP: ${r.owasp})` : r.title },
-            helpUri: `https://github.com/OWNER/mcpscan/blob/main/docs/rules/${r.id}.md`,
+            helpUri: `https://github.com/luked20/mcpscan/blob/main/docs/rules/${r.id}.md`,
             defaultConfiguration: { level: LEVEL[r.severity] },
             properties: { tags: ['security', 'mcp'], 'security-severity': securityScore(r.severity) },
           })),
@@ -1535,7 +1535,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: OWNER/mcpscan@v1
+      - uses: luked20/mcpscan@v1
         id: scan
         continue-on-error: true
         with: { path: '.', fail-on: 'high' }
