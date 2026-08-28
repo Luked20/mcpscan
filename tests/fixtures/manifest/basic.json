@@ -1,0 +1,13 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Lê um arquivo do disco.",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "path": { "type": "string", "description": "Caminho do arquivo" } },
+        "required": ["path"]
+      }
+    }
+  ]
+}
