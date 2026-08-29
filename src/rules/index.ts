@@ -6,6 +6,7 @@ import { MCP004 } from './mcp/MCP004.js';
 import { MCP005 } from './mcp/MCP005.js';
 import { MCP007 } from './mcp/MCP007.js';
 import { MCP009 } from './mcp/MCP009.js';
+import { SKILL001 } from './skill/SKILL001.js';
 import { SKILL002 } from './skill/SKILL002.js';
 
-export const RULES: Rule[] = [MCP001, MCP002, MCP003, MCP004, MCP005, MCP007, MCP009, SKILL002];
+export const RULES: Rule[] = [MCP001, MCP002, MCP003, MCP004, MCP005, MCP007, MCP009, SKILL001, SKILL002];

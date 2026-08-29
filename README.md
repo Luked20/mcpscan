@@ -90,9 +90,10 @@ existing alerts.
 | `MCP005` | Unconstrained command parameter | high | [MCP05:2025 – Command Injection & Execution](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP005.md](docs/rules/MCP005.md) |
 | `MCP007` | Unpinned MCP server provenance | medium | [MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP007.md](docs/rules/MCP007.md) |
 | `MCP009` | Credential hardcoded in MCP server configuration | high | [MCP01:2025 – Token Mismanagement & Secret Exposure](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP009.md](docs/rules/MCP009.md) |
+| `SKILL001` | Hidden instruction in skill body | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL001.md](docs/rules/SKILL001.md) |
 | `SKILL002` | Model-directed instruction in skill description | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL002.md](docs/rules/SKILL002.md) |
 
-Only these eight rules are implemented so far. More are planned — see
+Only these nine rules are implemented so far. More are planned — see
 [`docs/SPEC.md`](docs/SPEC.md) §7 for the full catalog (tool shadowing,
 dangerous sinks in source, undeclared skill capabilities, remote code
 fetches in skills, and more).
@@ -131,12 +132,12 @@ Read this before you trust a clean scan.
   They are **not robust against an adaptive attacker who knows the rules** —
   a pattern matcher is not a substitute for review on anything you didn't
   write yourself.
-- **Only eight rules are implemented so far** (`MCP001`–`MCP005`, `MCP007`, `MCP009`, `SKILL002`).
-  The rest of the OWASP MCP Top 10 categories in `docs/SPEC.md` §7 are not
-  covered yet. A clean scan today means "no invisible Unicode, no
+- **Only nine rules are implemented so far** (`MCP001`–`MCP005`, `MCP007`, `MCP009`, `SKILL001`,
+  `SKILL002`). The rest of the OWASP MCP Top 10 categories in `docs/SPEC.md`
+  §7 are not covered yet. A clean scan today means "no invisible Unicode, no
   model-directed instruction found in the tool description, input schema, or
-  skill description, and no unconstrained path/command parameter in a file
-  or execution tool," not "this server or skill is safe."
+  skill frontmatter/body, and no unconstrained path/command parameter in a
+  file or execution tool," not "this server or skill is safe."
 - **Static analysis only.** `mcpscan` never starts your MCP server or calls
   `tools/list`. Live introspection (`--connect`) is deliberately left out of
   the MVP because it would mean executing untrusted code to scan it.
