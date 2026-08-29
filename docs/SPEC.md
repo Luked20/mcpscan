@@ -427,3 +427,68 @@ action.yml
   - The real format of `allowed-tools` is a **YAML list**, not a comma-separated string. `toArray()` accepts both.
   - Entries are **scoped**: `Bash(git *)`, `Agent(name)`, `Workflow(x)`. SKILL003's `split('(')[0]` normalizes this. Accepted consequence: a skill that declares `Bash(ls *)` and runs `curl` in the body is **not** detected, because `Bash` is on record as declared. Deliberate under-detection — err toward false negative, not false positive.
   - There are also `disallowed-tools`, `user-invocable`, and `disable-model-invocation`. None affect the MVP.
+
+---
+
+## 16. Public contract
+
+A decision becomes expensive to change at exactly the moment its output becomes **someone else's data**.
+
+While something lives only in this repository, changing it costs a `sed`. The moment it leaves — published to npm, written into someone's SARIF, pasted into a workflow, typed into a suppression comment in a third party's source — changing it stops being a refactor and becomes a breaking change. Some of these do not look like breaking changes at all, which is what makes them dangerous.
+
+This section is the inventory. Nothing here changes without a major version bump.
+
+### 16.1 What becomes someone else's data
+
+| Surface | Where it ends up | Cost of changing it later |
+|---|---|---|
+| **Rule IDs** (`MCP004`, `SKILL002`) | `mcpscan-disable-next-line MCP004` comments in user source; GitHub alert history | Suppressions silently stop matching and the finding **reappears**. The user did nothing wrong and gets no warning. |
+| **Per-rule severity** | Their `--fail-on high` in CI | Raising `medium` → `high` turns every user's build red with no change on their side. Does not look like a breaking change; is one. |
+| **Fingerprint composition** | GitHub's code-scanning alert database | Every alert for every user reopens at once. |
+| **Exit codes 0/1/2** | Conditionals in their workflows | Silent and catastrophic — a workflow that treated 2 as 0 would hide a broken scanner. |
+| **Suppression directive syntax** | Their source files | Every suppression stops working simultaneously. |
+| **Config file name and schema** (`mcpscan.config.json`) | Their repository | Scan silently runs with defaults. |
+| **Package name and binary name** (`mcpscan`) | `package.json`, workflows, muscle memory | — |
+| **SARIF `rule.id` values** | GitHub keys alerts on `ruleId` | Same as rule IDs. |
+| **User-facing language** (English) | Rule names rendered in GitHub's Security tab | Every alert becomes unreadable noise for most of the audience. |
+
+### 16.2 Versioning policy
+
+| Change | Bump |
+|---|---|
+| New rule added | minor |
+| Existing rule made **more precise** (fewer false positives, same ID and severity) | patch |
+| Existing rule made **broader** (detects more, may fire where it did not) | minor, and call it out in the changelog |
+| Rule severity changed | **major** |
+| Rule ID renamed or removed | **major** |
+| Exit code semantics changed | **major** |
+| Fingerprint composition changed | **major** — and only via a new fingerprint key (see 16.3) |
+| Suppression syntax or config schema changed | **major** |
+| Default `--fail-on` changed | **major** |
+
+A rule getting *more precise* is a patch because it can only reduce findings — a green build stays green. A rule getting *broader* can turn a green build red, so it is never a patch even though it feels like an improvement.
+
+### 16.3 Version every wire format from day one
+
+The SARIF fingerprint key is `mcpScan/v1`, not `mcpScan`. That single decision means a future change to fingerprint composition can ship as `mcpScan/v2` alongside `v1`, letting GitHub migrate alerts instead of reopening all of them at once.
+
+Apply the same reasoning to anything else that crosses the boundary: the config file carries a `version` field, and any future baseline file format does too. A wire format without a version field cannot be changed without breaking whoever already wrote one.
+
+### 16.4 Pre-flight, before anything leaves the machine
+
+Ran before Task 1; all three found a problem:
+
+- [x] **Package name available on npm.** `mcp-scan` is taken — v2.0.6, Invariant Labs, a **direct competitor** doing approximately what this spec describes. `mcp-scanner` also taken. Adopted `mcpscan`.
+- [x] **OWASP MCP Top 10 IDs verified against the published list.** The labels originally invented for the `owasp` field (`Excessive Agency`, `Prompt Injection`, `Credential Exposure`) do not exist in that taxonomy. See §7.1.
+- [x] **`SKILL.md` frontmatter verified against real skills**, not documentation. `allowed-tools` turned out to be optional, YAML-list shaped, and scope-qualified — see §15.
+
+Before the first publish, additionally:
+
+- [ ] SARIF validates against the official schema (`@microsoft/sarif-multitool validate`) with zero warnings — GitHub rejects invalid SARIF silently.
+- [ ] Every registered rule has `docs/rules/<ID>.md` live at its `helpUri`; a broken help link in a security report costs more trust than a missing one.
+- [ ] The GitHub Action's example workflow has been run once end to end, with the SARIF actually appearing in the Security tab.
+- [ ] `npx <name>@<version> --help` works from an empty directory outside this repo.
+
+### 16.5 What is deliberately NOT contract
+
+Free to change at any time, and stated here so nobody treats them as stable: the exact wording of `message` and `remediation` text, the `pretty` output layout, the ordering of findings beyond the documented sort keys, internal module structure, and the IR types in §5. Users should key on `ruleId` and `severity`, never on message text — and the docs should say so.
