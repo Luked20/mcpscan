@@ -1,17 +1,21 @@
 {
   "name": "mcpscan",
   "version": "0.0.0",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "description": "Self-serve security scanner for MCP servers and agent skills. Catches tool poisoning, schema poisoning, and other OWASP MCP Top 10 risks before deploy — CLI and CI, no dashboard required.",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build": "tsup"
+    "build": "tsup",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "keywords": [],
+  "keywords": [
+    "mcp",
+    "security",
+    "scanner",
+    "sarif",
+    "agent-skills",
+    "static-analysis"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
@@ -29,5 +33,20 @@
   },
   "bin": {
     "mcpscan": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs/rules"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luked20/mcpscan.git"
+  },
+  "homepage": "https://github.com/luked20/mcpscan#readme",
+  "bugs": {
+    "url": "https://github.com/luked20/mcpscan/issues"
   }
 }

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from 'commander';
 import { writeFileSync } from 'node:fs';
 import { scan } from '../scan.js';
