@@ -1,4 +1,5 @@
 import { parseTree, findNodeAtLocation, getNodeValue, type Node } from 'jsonc-parser';
+import { basename, dirname, extname } from 'node:path/posix';
 import { makeLocation, createLineIndex } from '../core/location.js';
 import type { ToolDefinition, SourceLocation } from '../core/types.js';
 
@@ -30,6 +31,27 @@ export function parseJsonPath(path: string): (string | number)[] | null {
   return out.length > 0 ? out : null;
 }
 
+/**
+ * `ToolDefinition.serverName` — MCP006 needs to tell "the same tool name from
+ * two different servers" apart from "the same tool listed twice in one file".
+ *
+ * Rule: if the manifest declares a root-level string `name` (the convention
+ * an MCP server's own manifest uses to name itself), that wins. Otherwise the
+ * *containing directory* of the file stands in for the server — manifests are
+ * conventionally laid out one directory per server (`server-a/tools.json`,
+ * `server-b/tools.json`). When the file sits at the scan root (no containing
+ * directory to use — `dirname` is `'.'`, including the single-file-scan case
+ * where `file` is just a basename), fall back to the file's own basename with
+ * its extension stripped, so `tools.json` at the root still yields a stable,
+ * non-empty name (`"tools"`) rather than the meaningless `'.'`.
+ */
+function deriveServerName(file: string, rootName: string | undefined): string {
+  if (rootName !== undefined && rootName.length > 0) return rootName;
+  const dir = dirname(file);
+  if (dir !== '.') return dir;
+  return basename(file, extname(file));
+}
+
 export function collectManifest(file: string, text: string): ToolDefinition[] {
   let root: Node | undefined;
   try {
@@ -41,6 +63,10 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
 
   const toolsNode = findNodeAtLocation(root, ['tools']);
   if (!toolsNode || toolsNode.type !== 'array') return [];
+
+  const nameNode = findNodeAtLocation(root, ['name']);
+  const rootName = nameNode && nameNode.type === 'string' ? (getNodeValue(nameNode) as string) : undefined;
+  const serverName = deriveServerName(file, rootName);
 
   const lineStarts = createLineIndex(text);
   const locate = (jsonPath: string, fallback: SourceLocation): SourceLocation => {
@@ -60,6 +86,7 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
       name: typeof value['name'] === 'string' ? value['name'] : `<unnamed #${i}>`,
       ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
       ...(value['inputSchema'] !== undefined ? { inputSchema: value['inputSchema'] } : {}),
+      serverName,
       origin,
       loc: (p: string) => locate(p, origin),
     });

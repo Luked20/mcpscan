@@ -29,6 +29,42 @@ describe('collectManifest', () => {
   });
 });
 
+describe('collectManifest — serverName derivation', () => {
+  it('uses the root-level "name" field when present', () => {
+    const src = JSON.stringify({ name: 'my-server', tools: [{ name: 'a' }] });
+    const [tool] = collectManifest('servers/whatever/tools.json', src);
+    expect(tool!.serverName).toBe('my-server');
+  });
+
+  it('falls back to the containing directory when there is no root "name"', () => {
+    const src = JSON.stringify({ tools: [{ name: 'a' }] });
+    const [tool] = collectManifest('servers/server-a/tools.json', src);
+    expect(tool!.serverName).toBe('servers/server-a');
+  });
+
+  it('falls back to the basename (extension stripped) when the file sits at the scan root', () => {
+    const src = JSON.stringify({ tools: [{ name: 'a' }] });
+    const [tool] = collectManifest('tools.json', src);
+    expect(tool!.serverName).toBe('tools');
+  });
+
+  it('two tools from different files get different serverName values', () => {
+    const srcA = JSON.stringify({ tools: [{ name: 'shared_tool' }] });
+    const srcB = JSON.stringify({ tools: [{ name: 'shared_tool' }] });
+    const [toolA] = collectManifest('server-a/tools.json', srcA);
+    const [toolB] = collectManifest('server-b/tools.json', srcB);
+    expect(toolA!.serverName).not.toBe(toolB!.serverName);
+    expect(toolA!.serverName).toBe('server-a');
+    expect(toolB!.serverName).toBe('server-b');
+  });
+
+  it('an empty string "name" does not win over the directory fallback', () => {
+    const src = JSON.stringify({ name: '', tools: [{ name: 'a' }] });
+    const [tool] = collectManifest('server-a/tools.json', src);
+    expect(tool!.serverName).toBe('server-a');
+  });
+});
+
 describe('parseJsonPath fails closed', () => {
   it('parses a well-formed path', () => {
     expect(parseJsonPath('tools[0].inputSchema.properties.path'))
