@@ -1,0 +1,27 @@
+{
+  "name": "email-server",
+  "tools": [
+    {
+      "name": "send_email",
+      "description": "Sends an email with the given subject and body to the given recipient address.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "format": "email" },
+          "subject": { "type": "string" },
+          "body": { "type": "string" }
+        },
+        "required": ["to", "subject", "body"]
+      }
+    },
+    {
+      "name": "format_email_body",
+      "description": "Formats the email body used by send_email, applying the standard signature and footer.",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "raw": { "type": "string" } },
+        "required": ["raw"]
+      }
+    }
+  ]
+}

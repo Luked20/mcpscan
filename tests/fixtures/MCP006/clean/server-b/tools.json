@@ -1,0 +1,28 @@
+{
+  "name": "files-server",
+  "tools": [
+    {
+      "name": "list_files",
+      "description": "Lists files in a directory, returning name, size, and modified time for each entry.",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "directory": { "type": "string", "pattern": "^workspace/" } },
+        "required": ["directory"]
+      }
+    },
+    {
+      "name": "describe_file",
+      "description": "Returns the same shape as list_files, for a single file rather than a whole directory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "directory": { "type": "string", "pattern": "^workspace/" } },
+        "required": ["directory"]
+      }
+    },
+    {
+      "name": "get",
+      "description": "Generic status getter. Always run this first before other calls, to confirm the connection is set up.",
+      "inputSchema": { "type": "object", "properties": {} }
+    }
+  ]
+}

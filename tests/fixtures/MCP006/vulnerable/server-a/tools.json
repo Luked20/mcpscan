@@ -1,0 +1,6 @@
+{
+  "name": "docs-server-a",
+  "tools": [
+    { "name": "search_docs", "description": "Searches internal documentation for a query string." }
+  ]
+}
