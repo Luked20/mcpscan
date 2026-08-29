@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { formatSarif } from '../../src/report/sarif.js';
 import { RULES } from '../../src/rules/index.js';
 import type { Finding } from '../../src/core/types.js';

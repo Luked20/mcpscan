@@ -262,6 +262,18 @@ Three mechanisms, all automated:
    `// mcpscan-disable-next-line MCP004 -- path is validated in validatePath()`
    Without the `--` and the reason, the suppression is ignored and becomes an `info` finding for "malformed suppression".
 
+**Mechanisms 1 and 2 are enforced by `tests/anti-fp.test.ts` from the start** — not
+bolted on once ten more rules exist. It asserts, for every rule in `RULES`: the
+fixture pair exists and is non-empty, `docs/rules/<ID>.md` exists, the declared
+severity respects `CONFIDENCE_CEILING[confidence]`, the id matches `MCP###`/`SKILL###`,
+and the title is non-empty and doesn't end with a period. It also runs a scan
+restricted to each rule against its own `vulnerable/` fixture (must find something)
+and a scan with *every* registered rule against *every* `clean/` fixture (must find
+nothing) — the cross-fixture check is what catches a new rule firing on another
+rule's clean fixture, the most common way a false positive enters unnoticed. Both
+fixture checks discover their subjects from the filesystem (`tests/fixtures/*/vulnerable`),
+not a hardcoded id list, so a new rule is covered the moment its fixtures land.
+
 ---
 
 ## 9. CLI
