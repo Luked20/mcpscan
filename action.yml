@@ -1,0 +1,43 @@
+name: 'mcpscan'
+description: 'Security scanner for MCP servers and agent skills'
+branding: { icon: 'shield', color: 'red' }
+inputs:
+  path:
+    description: 'Directory to scan'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'critical | high | medium | low | none'
+    required: false
+    default: 'high'
+  sarif-file:
+    description: 'Path of the generated SARIF file'
+    required: false
+    default: 'mcpscan.sarif'
+outputs:
+  sarif-file:
+    description: 'Path of the generated SARIF file'
+    value: ${{ inputs['sarif-file'] }}
+runs:
+  using: 'composite'
+  steps:
+    # github.action_ref is documented as unsafe to reference directly inside
+    # `run:` for a composite action — GitHub's own docs say to pass it through
+    # `env:` instead. It resolves to the tag the *consumer* used, e.g. `v1` for
+    # `uses: luked20/mcpscan@v1`, which is also a valid npm version range: npm
+    # (via node-semver) strips a leading `v` before parsing, so `mcpscan@v1`
+    # resolves the same as `mcpscan@1` — the highest published 1.x.y. It is
+    # NOT a valid range when the consumer pins a branch name or a commit SHA;
+    # in that case npm fails loudly ("No matching version"), which is the
+    # correct behavior — better than silently resolving to the wrong version.
+    - shell: bash
+      env:
+        MCPSCAN_ACTION_REF: ${{ github.action_ref }}
+        MCPSCAN_PATH: ${{ inputs.path }}
+        MCPSCAN_FAIL_ON: ${{ inputs['fail-on'] }}
+        MCPSCAN_SARIF_FILE: ${{ inputs['sarif-file'] }}
+      run: |
+        set -euo pipefail
+        version="${MCPSCAN_ACTION_REF:-latest}"
+        npx --yes "mcpscan@${version}" "${MCPSCAN_PATH}" \
+          --format sarif --output "${MCPSCAN_SARIF_FILE}" --fail-on "${MCPSCAN_FAIL_ON}"

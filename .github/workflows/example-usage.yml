@@ -1,0 +1,25 @@
+name: mcpscan
+on: [pull_request]
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: luked20/mcpscan@v1
+        id: scan
+        # continue-on-error keeps the job alive when the scan finds
+        # critical/high findings (exit 1), so the SARIF upload below still
+        # runs and the PR gets an annotation instead of just a red job with
+        # no explanation. The `if: steps.scan.outcome == 'failure'` step at
+        # the end re-applies the failure after the upload has had a chance
+        # to run — `outcome` reflects the step's real result even though
+        # continue-on-error forced its `conclusion` to success.
+        continue-on-error: true
+        with: { path: '.', fail-on: 'high' }
+      - uses: github/codeql-action/upload-sarif@v3
+        with: { sarif_file: mcpscan.sarif }
+      - if: steps.scan.outcome == 'failure'
+        run: exit 1
