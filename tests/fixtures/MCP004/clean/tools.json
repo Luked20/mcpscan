@@ -1,0 +1,139 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Reads a file from disk within the project root only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "pattern": "^/project/[A-Za-z0-9_/.-]+$" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "read_config_file",
+      "description": "Reads one of the predefined configuration files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": { "type": "string", "enum": ["app.json", "db.json"] }
+        }
+      }
+    },
+    {
+      "name": "read_manifest_file",
+      "description": "Reads the package manifest file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "const": "package.json" }
+        }
+      }
+    },
+    {
+      "name": "load_remote_file",
+      "description": "Loads a file identified by a URI.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    {
+      "name": "build_url",
+      "description": "Builds the request URL.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "read_file_contents",
+      "description": "Reads the contents of a file matching a query.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "read_file_descriptor",
+      "description": "Reads a file identified by a numeric descriptor.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "read_file_info",
+      "description": "Reads basic metadata about a file."
+    },
+    {
+      "name": "get_open_connections",
+      "description": "Returns the number of open network connections. See also the file-based variant.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "get_weather",
+      "description": "Returns the weather forecast for a city.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "city": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "list_commits",
+      "description": "Returns the last 100 commits of the repository.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "name": "send_email",
+      "description": "Sends an email to the given recipient.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "format": "email" }
+        }
+      }
+    },
+    {
+      "name": "run_lint",
+      "description": "Runs the linter over the given file with default rules.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string", "pattern": "^src/.*\\.ts$" }
+        }
+      }
+    },
+    {
+      "name": "write_log_file",
+      "description": "Writes a log entry to one of the predefined log files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": { "type": "string", "enum": ["app.log", "error.log"] }
+        }
+      }
+    }
+  ]
+}

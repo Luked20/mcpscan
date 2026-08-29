@@ -86,11 +86,12 @@ existing alerts.
 | `MCP001` | Model-directed instruction in tool description | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP001.md](docs/rules/MCP001.md) |
 | `MCP002` | Invisible Unicode character in tool definition | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP002.md](docs/rules/MCP002.md) |
 | `MCP003` | Model-directed instruction inside inputSchema | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP003.md](docs/rules/MCP003.md) |
+| `MCP004` | Unconstrained path parameter in a file tool | high | [MCP02:2025 – Privilege Escalation via Scope Creep](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP004.md](docs/rules/MCP004.md) |
 
-Only these three rules are implemented so far. More are planned — see
-[`docs/SPEC.md`](docs/SPEC.md) §7 for the full catalog (schema poisoning,
-tool shadowing, command-injection surfaces, unpinned server provenance,
-secrets in config, and the agent-skill equivalents).
+Only these four rules are implemented so far. More are planned — see
+[`docs/SPEC.md`](docs/SPEC.md) §7 for the full catalog (command-injection
+surfaces, tool shadowing, unpinned server provenance, secrets in config,
+dangerous sinks in source, and the agent-skill equivalents).
 
 ## Options
 
@@ -126,11 +127,11 @@ Read this before you trust a clean scan.
   They are **not robust against an adaptive attacker who knows the rules** —
   a pattern matcher is not a substitute for review on anything you didn't
   write yourself.
-- **Only three rules are implemented so far** (`MCP001`, `MCP002`, `MCP003`). The rest of
+- **Only four rules are implemented so far** (`MCP001`–`MCP004`). The rest of
   the OWASP MCP Top 10 categories in `docs/SPEC.md` §7 are not covered yet. A
-  clean scan today means "no invisible Unicode and no model-directed
-  instruction found in the tool description or its input schema," not "this
-  server is safe."
+  clean scan today means "no invisible Unicode, no model-directed
+  instruction found in the tool description or its input schema, and no
+  unconstrained path parameter in a file tool," not "this server is safe."
 - **Static analysis only.** `mcpscan` never starts your MCP server or calls
   `tools/list`. Live introspection (`--connect`) is deliberately left out of
   the MVP because it would mean executing untrusted code to scan it.

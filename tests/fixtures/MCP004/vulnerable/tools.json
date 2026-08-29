@@ -1,0 +1,58 @@
+{
+  "tools": [
+    {
+      "name": "get_file_contents",
+      "description": "Reads a file from disk and returns its contents as text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "write_file",
+      "description": "Writes content to a file on disk.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": { "type": "string" },
+          "content": { "type": "string" }
+        },
+        "required": ["filename", "content"]
+      }
+    },
+    {
+      "name": "list_directory",
+      "description": "Lists the contents of a directory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "directory": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "read_file",
+      "description": "Returns the requested content, given an identifier.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "sync_files",
+      "description": "Copies files between two locations on disk.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "dest": { "type": "string" }
+        }
+      }
+    }
+  ]
+}

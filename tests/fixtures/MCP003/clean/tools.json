@@ -6,7 +6,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "path": { "type": "string", "description": "Absolute path to the file. Must be absolute." }
+          "path": {
+            "type": "string",
+            "pattern": "^/[A-Za-z0-9_/.-]+$",
+            "description": "Absolute path to the file. Must be absolute."
+          }
         },
         "required": ["path"]
       }
