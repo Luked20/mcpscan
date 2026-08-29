@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { scan } from '../scan.js';
 import { formatPretty } from '../report/pretty.js';
 import { formatSarif } from '../report/sarif.js';
+import { formatGithub } from '../report/github.js';
 import { validateFormat } from '../report/format.js';
 import { RULES } from '../rules/index.js';
 import type { Severity } from '../core/types.js';
@@ -14,7 +15,7 @@ import pkg from '../../package.json' with { type: 'json' };
 const program = new Command()
   .name('mcpscan')
   .argument('[path]', 'diretório ou arquivo para analisar', '.')
-  .option('--format <fmt>', 'pretty | json | sarif (github: em breve)')
+  .option('--format <fmt>', 'pretty | json | sarif | github')
   .option('--output <file>', 'escreve no arquivo em vez do stdout')
   .option('--fail-on <sev>', 'critical | high | medium | low | none', 'high')
   .option('--rules <ids>', 'roda só estas regras (separadas por vírgula)')
@@ -52,6 +53,8 @@ if (formatError) {
       })
     : format === 'sarif'
     ? formatSarif(result.findings, RULES, pkg.version)
+    : format === 'github'
+    ? formatGithub(result.findings)
     : JSON.stringify({
         findings: result.findings,
         stats: result.stats,

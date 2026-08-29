@@ -1,9 +1,9 @@
 /** Formatos de saída realmente implementados. */
-export const FORMATS = ['pretty', 'json', 'sarif'] as const;
+export const FORMATS = ['pretty', 'json', 'sarif', 'github'] as const;
 export type Format = (typeof FORMATS)[number];
 
 /** Anunciados no SPEC, ainda não implementados — rejeitar é mais honesto que emitir JSON. */
-export const PLANNED_FORMATS = ['github'] as const;
+export const PLANNED_FORMATS = [] as const;
 
 export function isFormat(v: unknown): v is Format {
   return typeof v === 'string' && (FORMATS as readonly string[]).includes(v);
