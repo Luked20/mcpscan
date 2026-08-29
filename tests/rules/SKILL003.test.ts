@@ -205,7 +205,7 @@ describe('SKILL003 — behaviour', () => {
 });
 
 describe('SKILL003 — cross-rule precision', () => {
-  for (const id of ['SKILL001', 'SKILL002']) {
+  for (const id of ['SKILL001', 'SKILL002', 'SKILL004']) {
     it(`does not fire on the ${id} clean fixture`, () => {
       const f = `tests/fixtures/${id}/clean/SKILL.md`;
       const skill = collectSkill(f, readFileSync(f, 'utf8'))!;
