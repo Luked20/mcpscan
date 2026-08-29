@@ -16,6 +16,7 @@ file.
 | [MCP009](MCP009.md) | Credential hardcoded in MCP server configuration | high | MCP01:2025 – Token Mismanagement & Secret Exposure |
 | [SKILL001](SKILL001.md) | Hidden instruction in skill body | critical | MCP10:2025 – Context Injection & Over-Sharing |
 | [SKILL002](SKILL002.md) | Model-directed instruction in skill description | critical | MCP10:2025 – Context Injection & Over-Sharing |
+| [SKILL003](SKILL003.md) | Skill uses a capability it does not declare | high | MCP02:2025 – Privilege Escalation via Scope Creep |
 
 More rules are planned — see [`docs/SPEC.md`](../SPEC.md) §7 for the full
 catalog and what's still to come. The top-level [README](../../README.md)

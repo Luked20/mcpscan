@@ -92,11 +92,11 @@ existing alerts.
 | `MCP009` | Credential hardcoded in MCP server configuration | high | [MCP01:2025 – Token Mismanagement & Secret Exposure](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP009.md](docs/rules/MCP009.md) |
 | `SKILL001` | Hidden instruction in skill body | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL001.md](docs/rules/SKILL001.md) |
 | `SKILL002` | Model-directed instruction in skill description | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL002.md](docs/rules/SKILL002.md) |
+| `SKILL003` | Skill uses a capability it does not declare | high | [MCP02:2025 – Privilege Escalation via Scope Creep](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL003.md](docs/rules/SKILL003.md) |
 
-Only these nine rules are implemented so far. More are planned — see
+Only these ten rules are implemented so far. More are planned — see
 [`docs/SPEC.md`](docs/SPEC.md) §7 for the full catalog (tool shadowing,
-dangerous sinks in source, undeclared skill capabilities, remote code
-fetches in skills, and more).
+dangerous sinks in source, remote code fetches in skills, and more).
 
 ## Options
 
@@ -132,12 +132,13 @@ Read this before you trust a clean scan.
   They are **not robust against an adaptive attacker who knows the rules** —
   a pattern matcher is not a substitute for review on anything you didn't
   write yourself.
-- **Only nine rules are implemented so far** (`MCP001`–`MCP005`, `MCP007`, `MCP009`, `SKILL001`,
-  `SKILL002`). The rest of the OWASP MCP Top 10 categories in `docs/SPEC.md`
+- **Only ten rules are implemented so far** (`MCP001`–`MCP005`, `MCP007`, `MCP009`, `SKILL001`–
+  `SKILL003`). The rest of the OWASP MCP Top 10 categories in `docs/SPEC.md`
   §7 are not covered yet. A clean scan today means "no invisible Unicode, no
   model-directed instruction found in the tool description, input schema, or
-  skill frontmatter/body, and no unconstrained path/command parameter in a
-  file or execution tool," not "this server or skill is safe."
+  skill frontmatter/body, no unconstrained path/command parameter in a
+  file or execution tool, and no undeclared capability used in a skill body,"
+  not "this server or skill is safe."
 - **Static analysis only.** `mcpscan` never starts your MCP server or calls
   `tools/list`. Live introspection (`--connect`) is deliberately left out of
   the MVP because it would mean executing untrusted code to scan it.
