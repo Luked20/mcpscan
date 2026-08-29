@@ -252,6 +252,35 @@ IDs verified on 2026-08-28 against <https://owasp.org/www-project-mcp-top-10/>. 
 
 Every rule has `docs/rules/<ID>.md` with: a vulnerable example, a clean example, why it's a risk, how to fix it, how to suppress it. The finding's `helpUri` points there.
 
+### 7.3 Two families of rule, and why they need different severities
+
+| Family | Rules | Detects | Confidence | Evidence |
+|---|---|---|---|---|
+| **Payload** | MCP001, MCP002, MCP003, SKILL001, SKILL002 | Text that should not be there | `high` | Unambiguous. Nobody writes `<IMPORTANT>ignore previous instructions</IMPORTANT>` into a tool description by accident. |
+| **Risk surface** | MCP004, MCP005, MCP006, MCP008, SKILL003 | A schema or shape that *permits* something dangerous | `medium` | Circumstantial. A `path` with no `pattern` does not mean the tool has arbitrary file read — it means nothing in the contract prevents it. |
+
+Risk-surface rules **will flag correct code sometimes, by construction.** That is not a defect; it is what the family detects. Three consequences follow, and all three are load-bearing:
+
+1. `confidence: 'medium'` caps them at `high` — a risk-surface rule may never emit `critical`.
+2. Each requires **several conditions to coincide** before firing. MCP004 needs all three of: a path-shaped parameter name, no schema constraint, and a tool that is demonstrably a file tool. Drop any one and the rule becomes noise.
+3. Their `What this rule does NOT flag` documentation section matters more than for payload rules, because a developer whose safe code was flagged needs to see immediately which schema would have satisfied the rule.
+
+The failure mode to avoid is treating both families alike and giving risk surface a `critical`. A developer who gets a CRITICAL for naming a parameter `path` stops trusting the tool, and then never looks at the payload findings either — which were the correct ones.
+
+### 7.4 Accepted false negatives
+
+These are known misses. All fail in the safe direction — silence rather than noise — which is the trade this project deliberately makes.
+
+| Rule | Miss | Why it is accepted |
+|---|---|---|
+| MCP004 | A genuine file tool whose file verb and file noun sit more than 4 tokens apart | The proximity window separates `Reads a file from disk` from `…open network connections. See also the file-based variant.` Widening it re-admits the second. |
+| MCP004, MCP005 | Non-English tool descriptions | The verb/noun lists are English. Condition 3 simply will not match. |
+| MCP004, MCP005 | Parameters declared via `$ref` into `$defs` rather than inline in `properties` | These two rules need structural fields (`type`, `pattern`, `items`), not just text, so they do not reuse `schema-walk.ts`. Resolving `$ref` is future hardening. |
+| MCP004, MCP005 | `type: ['string', 'null']` — the array-of-types JSON Schema form | Uncommon but valid. Both rules compare `type === 'string'`. |
+| MCP001, MCP003, SKILL002 | ZWJ/ZWNJ evasion with a non-Latin neighbour | See §7.2. |
+
+Each entry is a candidate for hardening once the regression corpus (§8.2) exists to measure against. None should be closed speculatively — that is how MCP002 acquired four false-positive classes in the first place.
+
 ---
 
 ## 8. False-positive control (the requirement that kills the product if it fails)
