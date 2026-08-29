@@ -74,7 +74,10 @@ in this repo, and the Action itself is defined in
 `2` means "couldn't look" — wrong path, no MCP server or skill found, a rule
 crashed, an invalid flag. A workflow that treats `2` the same as `0` will
 report a broken scan as a clean one. Check the exit code explicitly; don't
-just gate on "job passed."
+just gate on "job passed." With `--format sarif`, a failed scan (exit `2`)
+still produces a SARIF file, but one marked `executionSuccessful: false` so
+GitHub code scanning doesn't read it as a clean analysis and close your
+existing alerts.
 
 ## Rules
 

@@ -24,7 +24,23 @@ function fingerprint(f: Finding): string {
     .slice(0, 16);
 }
 
-export function formatSarif(findings: Finding[], rules: Rule[], version: string): string {
+export interface SarifInvocationOptions {
+  /** false when the scan could not run to completion (exit code 2, "couldn't look"). */
+  executionSuccessful: boolean;
+  /**
+   * The same error string the CLI writes to stderr. Required when
+   * `executionSuccessful` is false; surfaced as a `toolExecutionNotifications` entry
+   * so the failure is visible from the document alone, not just the process exit code.
+   */
+  error?: string;
+}
+
+export function formatSarif(
+  findings: Finding[],
+  rules: Rule[],
+  version: string,
+  invocation: SarifInvocationOptions,
+): string {
   return JSON.stringify({
     $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
     version: '2.1.0',
@@ -47,6 +63,20 @@ export function formatSarif(findings: Finding[], rules: Rule[], version: string)
           })),
         },
       },
+      invocations: [{
+        executionSuccessful: invocation.executionSuccessful,
+        endTimeUtc: new Date().toISOString(),
+        // No commandLine / arguments / workingDirectory: a SARIF file gets
+        // committed and shared, and absolute paths from a developer's
+        // machine are needless leakage.
+        ...(invocation.executionSuccessful ? {} : {
+          toolExecutionNotifications: [{
+            level: 'error',
+            message: { text: invocation.error ?? 'scan failed' },
+            descriptor: { id: 'mcpscan/scan-failed' },
+          }],
+        }),
+      }],
       results: findings.map((f) => ({
         ruleId: f.ruleId,
         level: LEVEL[f.severity],

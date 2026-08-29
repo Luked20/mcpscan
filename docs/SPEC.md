@@ -304,6 +304,8 @@ Telling 1 from 2 matters: `1` means "found a problem", `2` means "couldn't look"
 
 The report for a scan with zero subjects **must not** look visually identical to a clean scan. `stats` reports two distinct counts: files **scanned** and files that **produced** tools.
 
+**An exit-2 run with `--format sarif --output <file>` still writes the SARIF file** — but one whose `runs[0].invocations[0].executionSuccessful` is `false`, not a document with empty `results` and no invocation metadata (§10). Silently skipping the write would be strictly worse than what it replaces: the workflow step would fail with no artifact at all, which at least does not risk being read as a clean result by anything downstream.
+
 ### 9.1 `pretty` output
 
 Real output of `mcpscan tests/fixtures/MCP002/vulnerable --no-color` (exit 1):
@@ -334,6 +336,9 @@ A priority since Phase 2 — it's what plugs into GitHub code scanning with no e
 - `runs[].results[]` — `ruleId`, `level`, `message.text`, `locations[].physicalLocation` with `artifactLocation.uri` (relative, `/`) and `region` (`startLine`, `startColumn`, `endLine`, `endColumn`).
 - `partialFingerprints["mcpScan/v1"]` = hash(ruleId + path + jsonPath + normalized evidence).
   **Without a stable fingerprint, GitHub reopens the same alert on every commit** and the user turns the tool off. The fingerprint **must not** include the line number — otherwise any edit above it generates a new alert.
+- `runs[].invocations[]` — **exactly one** invocation object, on every run, always. `executionSuccessful` is `true` for exit 0/1 and `false` for exit 2 (§9). On failure, the invocation also carries `toolExecutionNotifications: [{ level: 'error', message: { text }, descriptor: { id: 'mcpscan/scan-failed' } }]` with the same error string the CLI writes to stderr. No `commandLine`, `arguments`, or `workingDirectory` — a SARIF file gets committed and shared, and absolute paths from a developer's machine are needless leakage.
+
+  **Why this exists:** GitHub code scanning reconciles every SARIF upload against the previous one and *closes* alerts that were open before but are absent from the new upload. Before this field, an exit-2 run (bad path, zero subjects, a crashing rule) still produced a document with `results: []` and no invocation metadata — indistinguishable from a genuinely clean scan. GitHub would read that as "reanalyzed, found nothing" and close every previously-reported alert, while the CI job itself turned red. The scan failure and the security data would disagree: the job fails, but the Security tab goes quiet. `executionSuccessful: false` tells GitHub the run did not complete, so it does not treat an empty `results[]` as a clean bill of health. `executionSuccessful` is a **required** SARIF invocation property regardless — this closes a real gap, not just a defensive addition.
 
 Severity → SARIF `level`: critical/high → `error`, medium → `warning`, low/info → `note`.
 

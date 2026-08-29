@@ -51,7 +51,10 @@ if (formatError) {
         ...(result.error !== undefined ? { error: result.error } : {}),
       })
     : format === 'sarif'
-    ? formatSarif(result.findings, RULES, pkg.version)
+    ? formatSarif(result.findings, RULES, pkg.version, {
+        executionSuccessful: result.exitCode !== 2,
+        ...(result.error !== undefined ? { error: result.error } : {}),
+      })
     : format === 'github'
     ? formatGithub(result.findings)
     : JSON.stringify({
