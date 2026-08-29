@@ -219,6 +219,14 @@ Com `Rule<S>` genérico, uma regra declarando `appliesTo: 'tool'` mas tipada com
 
 As quatro entradas legítimas da tabela acima são **fixtures negativas obrigatórias** de MCP002.
 
+#### Brecha de evasão conhecida e aceita
+
+A condição "ambos os vizinhos latinos" para ZWJ/ZWNJ deixa uma costura: `read` + ZWJ + `😀` + texto oculto **não dispara**, porque o vizinho da direita não é latino. Confirmado por reprodução.
+
+Fechar isso exigiria trocar por "**pelo menos um** vizinho latino". Nenhum uso legítimo conhecido de ZWJ/ZWNJ tem vizinho latino — em sequência emoji os dois lados são emoji, em persa e devanágari os dois lados são do próprio script — então a troca é *provavelmente* segura. Fica como **endurecimento candidato, não aplicado**, até a Task 28 ter corpus real para medir. Numa regra cujo valor inteiro é não gerar falso positivo, "provavelmente seguro" não basta para mexer na precisão.
+
+Isto é consistente com a limitação já declarada em §14: contra atacante adaptativo que conhece as regras, um casador de padrões não resiste. O README diz isso; a alternativa — fingir cobertura — custa mais confiança do que a brecha.
+
 ### 7.1 Mapeamento para o OWASP MCP Top 10 (2025)
 
 IDs verificados em 2026-08-28 contra <https://owasp.org/www-project-mcp-top-10/>. O campo `owasp` de cada regra usa a string exata desta tabela — nunca um rótulo inventado.
