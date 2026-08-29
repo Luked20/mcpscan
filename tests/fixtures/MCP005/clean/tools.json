@@ -1,0 +1,123 @@
+{
+  "tools": [
+    {
+      "name": "run_predefined_command",
+      "description": "Runs one of a small set of predefined commands.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string", "enum": ["ls", "pwd", "whoami"] }
+        }
+      }
+    },
+    {
+      "name": "send_key",
+      "description": "Sends a MIDI command to the device.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "run_with_args",
+      "description": "Runs the configured binary with the given arguments.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "args": { "type": "array", "items": { "type": "string", "pattern": "^--[a-z-]+$" } }
+        }
+      }
+    },
+    {
+      "name": "run_report",
+      "description": "Generates a report using the given command-line flags.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "commandline_flags": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "ping_host",
+      "description": "Checks whether a host is reachable."
+    },
+    {
+      "name": "get_weather",
+      "description": "Returns the weather forecast for a city.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "city": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "list_commits",
+      "description": "Returns the last 100 commits of the repository.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "name": "send_email",
+      "description": "Sends an email to the given recipient.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "format": "email" }
+        }
+      }
+    },
+    {
+      "name": "get_status",
+      "description": "Returns the current job status.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "verbose": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "name": "execute_predefined_script",
+      "description": "Executes one of the predefined maintenance scripts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "script": { "type": "string", "enum": ["backup.sh", "cleanup.sh"] }
+        }
+      }
+    },
+    {
+      "name": "run_pipeline",
+      "description": "Runs a pipeline defined by a structured configuration object.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "object",
+            "properties": {
+              "steps": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "run_windows_task",
+      "description": "Runs a fixed PowerShell task by name.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "powershell": { "type": "string", "enum": ["restart-service", "get-status"] }
+        }
+      }
+    }
+  ]
+}

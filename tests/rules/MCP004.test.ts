@@ -200,7 +200,7 @@ describe('MCP004 — behaviour', () => {
 });
 
 describe('MCP004 — cross-rule precision', () => {
-  for (const id of ['MCP001', 'MCP002', 'MCP003']) {
+  for (const id of ['MCP001', 'MCP002', 'MCP003', 'MCP005']) {
     it(`does not fire on the ${id} clean fixture`, () => {
       const f = `tests/fixtures/${id}/clean/tools.json`;
       const tools = collectManifest(f, readFileSync(f, 'utf8'));

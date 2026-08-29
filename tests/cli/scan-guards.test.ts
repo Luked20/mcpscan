@@ -22,7 +22,7 @@ describe('rule selection', () => {
     const r = await scan({
       path: VULN,
       failOn: 'high',
-      disable: ['MCP001', 'MCP002', 'MCP003', 'MCP004'],
+      disable: ['MCP001', 'MCP002', 'MCP003', 'MCP004', 'MCP005'],
     });
     expect(r.exitCode).toBe(2);
     expect(r.error).toBeTruthy();

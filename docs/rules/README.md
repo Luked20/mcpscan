@@ -11,6 +11,7 @@ file.
 | [MCP002](MCP002.md) | Invisible Unicode character in tool definition | critical | MCP03:2025 – Tool Poisoning |
 | [MCP003](MCP003.md) | Model-directed instruction inside inputSchema | critical | MCP03:2025 – Tool Poisoning |
 | [MCP004](MCP004.md) | Unconstrained path parameter in a file tool | high | MCP02:2025 – Privilege Escalation via Scope Creep |
+| [MCP005](MCP005.md) | Unconstrained command parameter | high | MCP05:2025 – Command Injection & Execution |
 
 More rules are planned — see [`docs/SPEC.md`](../SPEC.md) §7 for the full
 catalog and what's still to come. The top-level [README](../../README.md)

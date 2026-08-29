@@ -1,0 +1,46 @@
+{
+  "tools": [
+    {
+      "name": "run_command",
+      "description": "Runs a command on the host.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" }
+        },
+        "required": ["command"]
+      }
+    },
+    {
+      "name": "run_shell",
+      "description": "Executes a shell command and returns its output.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "args": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "name": "run_script",
+      "description": "Executes a script file with the given arguments.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "script": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "execute_task",
+      "description": "Executes an arbitrary shell command with a list of arguments.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" },
+          "args": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  ]
+}
