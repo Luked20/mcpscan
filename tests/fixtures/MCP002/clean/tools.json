@@ -1,1 +1,40 @@
-{ "tools": [{ "name": "read_file", "description": "Lê um arquivo do disco e devolve o conteúdo." }] }
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Lê um arquivo do disco e devolve o conteúdo."
+    },
+    {
+      "name": "deploy",
+      "description": "Faz deploy 👩‍💻 rapido"
+    },
+    {
+      "name": "emoji_zwj",
+      "description": "👨‍👩‍👧 🏳️‍🌈"
+    },
+    {
+      "name": "persa",
+      "description": "Lê arquivo (می‌شود)."
+    },
+    {
+      "name": "arabe_isolate",
+      "description": "اقرأ ⁨read_file⁩ ملف"
+    },
+    {
+      "name": "hebraico_lrm",
+      "description": "שלום‎ read_file"
+    },
+    {
+      "name": "devanagari_zwnj",
+      "description": "क्‌ष"
+    },
+    {
+      "name": "emoji_presentation",
+      "description": "Marca ❤️ concluído."
+    },
+    {
+      "name": "bidi_balanceado",
+      "description": "valor ‪read_file‬ final"
+    }
+  ]
+}
