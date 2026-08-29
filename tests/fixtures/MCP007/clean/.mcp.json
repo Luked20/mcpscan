@@ -1,0 +1,57 @@
+{
+  "mcpServers": {
+    "pinned": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "some-mcp@1.4.2"
+      ]
+    },
+    "scoped": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@acme/some-mcp@2.0.1"
+      ]
+    },
+    "prerelease": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "some-mcp@3.0.0-beta.1"
+      ]
+    },
+    "localbin": {
+      "command": "node",
+      "args": [
+        "./dist/server.js"
+      ]
+    },
+    "pinneduvx": {
+      "command": "uvx",
+      "args": [
+        "some-mcp@0.9.0"
+      ]
+    },
+    "secure": {
+      "url": "https://api.example.com/mcp"
+    },
+    "latestnews": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "latest-news-mcp@2.0.1"
+      ]
+    },
+    "envrefs": {
+      "command": "node",
+      "args": [
+        "./s.js"
+      ],
+      "env": {
+        "TOKEN": "${GITHUB_TOKEN}",
+        "KEY": "$OPENAI_KEY"
+      }
+    }
+  }
+}

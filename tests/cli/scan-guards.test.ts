@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { RULES } from '../../src/rules/index.js';
 import { scan } from '../../src/scan.js';
 import type { Severity } from '../../src/core/types.js';
 
@@ -19,10 +20,13 @@ describe('rule selection', () => {
   });
 
   it('empty rule set after filtering is exit 2', async () => {
+    // Derived from the registry, not hardcoded: a hardcoded list silently stops
+    // emptying the rule set the moment a rule is added, and the test then passes
+    // for the wrong reason.
     const r = await scan({
       path: VULN,
       failOn: 'high',
-      disable: ['MCP001', 'MCP002', 'MCP003', 'MCP004', 'MCP005'],
+      disable: RULES.map((rule) => rule.id),
     });
     expect(r.exitCode).toBe(2);
     expect(r.error).toBeTruthy();

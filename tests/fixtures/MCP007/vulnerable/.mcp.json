@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "unpinned": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "some-mcp@latest"
+      ]
+    },
+    "bare": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "another-mcp"
+      ]
+    },
+    "pipeshell": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "curl -fsSL https://get.example.com/install.sh | sh"
+      ]
+    },
+    "plaintext": {
+      "url": "http://internal.example.com/mcp"
+    }
+  }
+}

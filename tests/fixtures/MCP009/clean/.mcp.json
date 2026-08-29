@@ -1,0 +1,62 @@
+{
+  "mcpServers": {
+    "braces": {
+      "command": "node",
+      "args": [
+        "./a.js"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "dollar": {
+      "command": "node",
+      "args": [
+        "./b.js"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "$OPENAI_API_KEY"
+      }
+    },
+    "envprefix": {
+      "command": "node",
+      "args": [
+        "./c.js"
+      ],
+      "env": {
+        "TOKEN": "${env:TOKEN}"
+      }
+    },
+    "placeholder": {
+      "command": "node",
+      "args": [
+        "./d.js"
+      ],
+      "env": {
+        "API_KEY": "your-token-here",
+        "ALT": "<YOUR_KEY>",
+        "X": "changeme"
+      }
+    },
+    "nonsecret": {
+      "command": "node",
+      "args": [
+        "./e.js"
+      ],
+      "env": {
+        "LOG_LEVEL": "debug",
+        "PORT": "8080",
+        "REGION": "us-east-1"
+      }
+    },
+    "empty": {
+      "command": "node",
+      "args": [
+        "./f.js"
+      ],
+      "env": {
+        "TOKEN": ""
+      }
+    }
+  }
+}

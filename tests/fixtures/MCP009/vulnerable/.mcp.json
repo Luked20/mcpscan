@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "node",
+      "args": [
+        "./gh.js"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    },
+    "openai": {
+      "command": "node",
+      "args": [
+        "./oa.js"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "sk-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    },
+    "aws": {
+      "command": "node",
+      "args": [
+        "./aws.js"
+      ],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "AKIABBBBBBBBBBBBBBBB"
+      }
+    }
+  }
+}
