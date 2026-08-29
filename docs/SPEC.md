@@ -140,6 +140,8 @@ The engine applies a ceiling: **a rule with `confidence: 'low'` never emits a se
 
 > **What this ceiling is NOT.** It constrains the *metadata the rule author writes*, not the rule's actual precision. MCP002 declared itself `critical`/`high` — the ceiling was a no-op — and it still had four classes of false positive (§7.2). The ceiling prevents publishing `critical`/`low`; it is **not** the defense against false positives. That defense is the breadth of each rule's negative fixtures (§8) and the regression corpus.
 
+**A rule must declare the severity it actually emits.** The engine clamps at runtime, but `tests/anti-fp.test.ts` additionally rejects any rule whose *declared* severity exceeds its confidence ceiling. Declaring `critical` with `confidence: 'medium'` and silently being emitted as `high` is the same class of metadata lie the ceiling exists to prevent — and the declared value is what reaches SARIF's `defaultConfiguration.level`, so the two must agree. MCP005 was specified as `critical`/`medium` and was corrected to `high`/`medium` for this reason, before it was implemented.
+
 ### 6.2 `appliesTo` and the subject's type
 
 `Rule` is a **union discriminated by `appliesTo`**, not a free generic `Rule<S>`:
@@ -170,7 +172,7 @@ With a generic `Rule<S>`, a rule declaring `appliesTo: 'tool'` but typed as `Rul
 | **MCP001** | `tool-description-injection` | critical | high | Model-directed directives inside `description`: `<IMPORTANT>`, "ignore previous instructions", "do not tell the user", "before calling any other tool", "don't mention". → FP: requires an imperative pattern **and** a target (model/user), not a standalone word. |
 | **MCP003** | `schema-field-injection` | critical | high | The same pattern as MCP001, but inside `inputSchema.properties.*.description` / `default` / `enum`. A schema field is an even less legitimate place for imperative prose. |
 | **MCP004** | `unconstrained-path-parameter` | high | medium | A `string` param whose name matches `path\|file\|filename\|dir\|target` **and** has no `pattern`/`enum`/`format` **and** the tool describes reading/writing a file. → FP: all three conditions together; without the third it becomes noise. |
-| **MCP005** | `command-injection-surface` | critical | medium | A param feeding a shell: name matches `cmd\|command\|shell\|script\|exec`, or a tool named `run_*`/`exec_*` with a free-form string param. |
+| **MCP005** | `command-injection-surface` | high | medium | A param feeding a shell: name matches `cmd\|command\|shell\|script\|exec`, or a tool named `run_*`/`exec_*` with a free-form string param. |
 | **MCP008** | `dangerous-sink-in-source` | high | medium | In source code: `eval(`, `new Function(`, `child_process.exec(` with a template literal, `fs.readFile` with a value coming straight from `request.params.arguments`. |
 | **MCP006** | `tool-shadowing` | high | medium | Two tools with the same name on different servers; or a tool's `description` naming another tool with an imperative verb ("when using `send_email`, first call…"). |
 | **MCP007** | `unpinned-server-provenance` | medium | high | Config with `npx -y pkg` without a pinned version, `@latest`, `curl \| sh` in the command, or an unencrypted `http://` URL. |
