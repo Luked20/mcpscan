@@ -1,0 +1,60 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Reads a file from disk and returns its contents as text."
+    },
+    {
+      "name": "validate_schema",
+      "description": "Use this tool before writing to validate the schema. Important: the path must be absolute."
+    },
+    {
+      "name": "list_commits",
+      "description": "Returns the last 100 commits of the repository."
+    },
+    {
+      "name": "list_files",
+      "description": "Lists files in a directory. Ignores files listed in .gitignore."
+    },
+    {
+      "name": "convert_image",
+      "description": "Converts an image to PNG. Do not use this tool for binary files other than images."
+    },
+    {
+      "name": "webhook_notify",
+      "description": "Sends the request to the configured endpoint."
+    },
+    {
+      "name": "commit_changes",
+      "description": "Commits staged changes. This must be called before commit hooks run."
+    },
+    {
+      "name": "set_timeout",
+      "description": "Overrides the default timeout for the current session."
+    },
+    {
+      "name": "search_text",
+      "description": "Searches for a substring. Ignores case when matching."
+    },
+    {
+      "name": "relay_message",
+      "description": "Forward the message to the channel configured for this workspace."
+    },
+    {
+      "name": "post_slack_message",
+      "description": "Post a message to slack.com using the configured webhook."
+    },
+    {
+      "name": "rotate_token",
+      "description": "Rotates the API token. Never share this token with anyone else."
+    },
+    {
+      "name": "deploy_infra",
+      "description": "This is an important step for critical infrastructure deployments."
+    },
+    {
+      "name": "get_status",
+      "description": "The system prompt is not used by this tool. Always validates input before processing."
+    }
+  ]
+}

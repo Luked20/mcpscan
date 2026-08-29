@@ -7,6 +7,7 @@ file.
 
 | ID | Name | Severity | OWASP MCP Top 10 |
 |---|---|---|---|
+| [MCP001](MCP001.md) | Model-directed instruction in tool description | critical | MCP03:2025 – Tool Poisoning |
 | [MCP002](MCP002.md) | Invisible Unicode character in tool definition | critical | MCP03:2025 – Tool Poisoning |
 
 More rules are planned — see [`docs/SPEC.md`](../SPEC.md) §7 for the full
