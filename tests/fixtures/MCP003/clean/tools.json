@@ -1,0 +1,208 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Reads a file from disk and returns its contents as text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Absolute path to the file. Must be absolute." }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "validate_schema",
+      "description": "Validates a JSON document against a schema.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "Use this tool before writing to validate the schema. Important: the path must be absolute."
+          }
+        }
+      }
+    },
+    {
+      "name": "list_files",
+      "description": "Lists files in a directory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Ignores files listed in .gitignore." }
+        }
+      }
+    },
+    {
+      "name": "convert_image",
+      "description": "Converts an image to a target format.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": ["png", "jpg"],
+            "description": "Do not use this tool for binary files other than images."
+          }
+        }
+      }
+    },
+    {
+      "name": "webhook_notify",
+      "description": "Notifies a preconfigured webhook.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "default": "https://internal.example.com/hook",
+            "description": "Sends the request to the configured endpoint."
+          }
+        }
+      }
+    },
+    {
+      "name": "commit_changes",
+      "description": "Commits staged changes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "description": "This must be called before commit hooks run." }
+        }
+      }
+    },
+    {
+      "name": "set_timeout",
+      "description": "Sets a timeout for the current session.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ms": {
+            "type": "integer",
+            "default": 3000,
+            "description": "Overrides the default timeout for the current session."
+          }
+        }
+      }
+    },
+    {
+      "name": "search_text",
+      "description": "Searches for a substring in a file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Searches for a substring. Ignores case when matching." }
+        }
+      }
+    },
+    {
+      "name": "relay_message",
+      "description": "Relays a message to a workspace channel.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Forward the message to the channel configured for this workspace."
+          }
+        }
+      }
+    },
+    {
+      "name": "post_slack_message",
+      "description": "Posts a message to Slack.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Post a message to slack.com using the configured webhook."
+          }
+        }
+      }
+    },
+    {
+      "name": "rotate_token",
+      "description": "Rotates an API token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "token_id": {
+            "type": "string",
+            "description": "Rotates the API token. Never share this token with anyone else."
+          }
+        }
+      }
+    },
+    {
+      "name": "deploy_infra",
+      "description": "Deploys infrastructure to a target stage.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": ["dev", "staging", "prod"],
+            "description": "This is an important step for critical infrastructure deployments."
+          }
+        }
+      }
+    },
+    {
+      "name": "get_status",
+      "description": "Returns the current job status.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "verbose": {
+            "type": "boolean",
+            "default": false,
+            "description": "The system prompt is not used by this tool. Always validates input before processing."
+          }
+        }
+      }
+    },
+    {
+      "name": "create_issue",
+      "description": "Creates an issue with labels and metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "Short issue title." },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string", "description": "A label to apply. Must not contain spaces." },
+            "examples": [["bug", "P1"]]
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "string",
+                "enum": ["low", "medium", "high"],
+                "description": "Ignores case when matching against the allowed values."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "schema_meta_example",
+      "description": "Demonstrates title, $comment and const on a nested field.",
+      "inputSchema": {
+        "type": "object",
+        "title": "Input for schema_meta_example",
+        "$comment": "Internal schema; important: keep in sync with the API version.",
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "const": "v2",
+            "description": "Fixed API version. Always v2."
+          }
+        }
+      }
+    }
+  ]
+}

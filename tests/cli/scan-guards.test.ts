@@ -19,7 +19,7 @@ describe('rule selection', () => {
   });
 
   it('empty rule set after filtering is exit 2', async () => {
-    const r = await scan({ path: VULN, failOn: 'high', disable: ['MCP001', 'MCP002'] });
+    const r = await scan({ path: VULN, failOn: 'high', disable: ['MCP001', 'MCP002', 'MCP003'] });
     expect(r.exitCode).toBe(2);
     expect(r.error).toBeTruthy();
   });
