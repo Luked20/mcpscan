@@ -32,10 +32,10 @@ function findingLines(findings: Finding[], c: Paint): string[] {
 
 export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   const c = (fn: (s: string) => string, s: string) => (opts.color ? fn(s) : s);
-  const { filesExamined, filesWithTools, tools, skills } = opts.stats;
+  const { filesExamined, filesWithTools, tools, servers, skills } = opts.stats;
   const lines: string[] = [
     `mcpscan · ${filesExamined} file(s) scanned · ${filesWithTools} with tools · ` +
-    `${tools} tool(s) · ${skills} skill(s)`,
+    `${tools} tool(s) · ${servers} server(s) · ${skills} skill(s)`,
     '',
   ];
 

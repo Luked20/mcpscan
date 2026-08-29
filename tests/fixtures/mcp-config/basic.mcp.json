@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "files": {
+      "command": "npx",
+      "args": ["-y", "some-mcp@latest"],
+      "env": { "TOKEN": "abc123" }
+    },
+    "remote": {
+      "url": "https://example.com/mcp"
+    }
+  }
+}

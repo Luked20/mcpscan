@@ -1,11 +1,15 @@
 import { glob } from 'tinyglobby';
 import { readFile, stat } from 'node:fs/promises';
-import { dirname, relative, resolve } from 'node:path';
+import { basename, dirname, relative, resolve } from 'node:path';
 import { collectManifest } from './mcp-manifest.js';
-import type { ScanTarget, ToolDefinition } from '../core/types.js';
+import { collectMcpConfig } from './mcp-config.js';
+import type { ScanTarget, ServerDefinition, ToolDefinition } from '../core/types.js';
 
 const IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'];
 const MAX_BYTES = 2_000_000;
+
+/** Basenames recognized as MCP client config files, in addition to the manifest scan. */
+const CONFIG_BASENAMES = new Set(['.mcp.json', 'mcp.json', 'claude_desktop_config.json']);
 
 /**
  * `root` can be a directory or a file. The CLI advertises both
@@ -25,6 +29,7 @@ export async function discover(root: string): Promise<ScanTarget> {
     : [abs];
 
   const tools: ToolDefinition[] = [];
+  const servers: ServerDefinition[] = [];
   let filesExamined = 0;
 
   for (const file of files) {
@@ -42,7 +47,12 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
     filesExamined += 1;
     tools.push(...collectManifest(rel, text));
+    // These files are already being read for the manifest pass above; this is
+    // an additional collector pass over the same text, not a second file read.
+    if (CONFIG_BASENAMES.has(basename(file))) {
+      servers.push(...collectMcpConfig(rel, text));
+    }
   }
 
-  return { root: base, servers: [], tools, skills: [], sourceFiles: [], filesExamined };
+  return { root: base, servers, tools, skills: [], sourceFiles: [], filesExamined };
 }

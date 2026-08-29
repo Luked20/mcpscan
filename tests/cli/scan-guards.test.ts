@@ -44,7 +44,7 @@ describe('nothing to scan', () => {
 
   it('stats separate files scanned from files with tools', async () => {
     const r = await scan({ path: VULN, failOn: 'high' });
-    expect(r.stats).toEqual({ filesExamined: 1, filesWithTools: 1, tools: 1, skills: 0 });
+    expect(r.stats).toEqual({ filesExamined: 1, filesWithTools: 1, tools: 1, servers: 0, skills: 0 });
   });
 });
 

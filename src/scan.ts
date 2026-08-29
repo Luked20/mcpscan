@@ -20,6 +20,8 @@ export interface ScanStats {
   /** Subset that actually produced tools. */
   filesWithTools: number;
   tools: number;
+  /** MCP servers declared in client config files. */
+  servers: number;
   skills: number;
 }
 
@@ -30,7 +32,7 @@ export interface ScanResult {
   error?: string;
 }
 
-const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tools: 0, skills: 0 });
+const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
@@ -78,6 +80,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       filesExamined: target.filesExamined,
       filesWithTools: new Set(target.tools.map((t) => t.origin.file)).size,
       tools: target.tools.length,
+      servers: target.servers.length,
       skills: target.skills.length,
     };
 
