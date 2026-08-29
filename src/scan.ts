@@ -15,9 +15,9 @@ export interface ScanOptions {
 }
 
 export interface ScanStats {
-  /** Arquivos lidos. */
+  /** Files read. */
   filesExamined: number;
-  /** Subconjunto que de fato produziu tools. */
+  /** Subset that actually produced tools. */
   filesWithTools: number;
   tools: number;
   skills: number;
@@ -35,32 +35,32 @@ const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tool
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
 
-/** Nada descoberto não é "limpo": é "apontei para o lugar errado". */
+/** Nothing discovered isn't "clean": it's "pointed at the wrong place". */
 function hasSubjects(t: ScanTarget): boolean {
   return t.tools.length > 0 || t.skills.length > 0 ||
     t.servers.length > 0 || t.sourceFiles.length > 0;
 }
 
-/** Devolve o conjunto ativo, ou uma mensagem de erro se a seleção não faz sentido. */
+/** Returns the active rule set, or an error message if the selection makes no sense. */
 function selectRules(opts: ScanOptions): Rule[] | string {
   const known = new Set(RULES.map((r) => r.id));
   const valid = RULES.map((r) => r.id).join(', ');
   const unknown = [...(opts.rules ?? []), ...(opts.disable ?? [])].filter((id) => !known.has(id));
   if (unknown.length > 0) {
-    return `regra(s) desconhecida(s): ${[...new Set(unknown)].join(', ')}. Válidas: ${valid}`;
+    return `unknown rule(s): ${[...new Set(unknown)].join(', ')}. Valid: ${valid}`;
   }
 
   let active = RULES;
   if (opts.rules?.length) active = active.filter((r) => opts.rules!.includes(r.id));
   if (opts.disable?.length) active = active.filter((r) => !opts.disable!.includes(r.id));
-  if (active.length === 0) return `nenhuma regra ativa depois de --rules/--disable. Válidas: ${valid}`;
+  if (active.length === 0) return `no active rules after --rules/--disable. Valid: ${valid}`;
   return active;
 }
 
 export async function scan(opts: ScanOptions): Promise<ScanResult> {
   const failOn = opts.failOn;
   if (!isFailOn(failOn)) {
-    return fail(`--fail-on inválido: ${String(failOn)}. Use: ${FAIL_ON_VALUES.join(' | ')}`);
+    return fail(`invalid --fail-on: ${String(failOn)}. Use: ${FAIL_ON_VALUES.join(' | ')}`);
   }
 
   const active = selectRules(opts);
@@ -69,7 +69,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
   try {
     statSync(opts.path);
   } catch {
-    return fail(`caminho não encontrado: ${opts.path}`);
+    return fail(`path not found: ${opts.path}`);
   }
 
   try {
@@ -83,21 +83,21 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
 
     if (!hasSubjects(target)) {
       return fail(
-        `nenhum MCP server ou agent skill encontrado em ${opts.path} ` +
-        `(${stats.filesExamined} arquivo(s) examinado(s))`,
+        `no MCP server or agent skill found in ${opts.path} ` +
+        `(${stats.filesExamined} file(s) scanned)`,
         [], stats,
       );
     }
 
     const { findings, failures } = runRules(target, active, HELP_BASE_URI);
 
-    // Uma regra que lançou é "não consegui olhar", não "está limpo". Os findings já
-    // coletados voltam para um relatório parcial, mas o exit code diz 2.
+    // A rule that threw means "couldn't look", not "is clean". The findings already
+    // collected still go into a partial report, but the exit code says 2.
     if (failures.length > 0) {
       const detail = failures
         .map((f) => `${f.ruleId} (${f.subjectCount} subjects): ${f.message}`)
         .join('; ');
-      return fail(`regra(s) falharam durante o scan: ${detail}`, findings, stats);
+      return fail(`rule(s) failed during the scan: ${detail}`, findings, stats);
     }
 
     const fails = failOn !== 'none' && findings.some((f) => atLeast(f.severity, failOn));

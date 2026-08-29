@@ -4,54 +4,54 @@ import type { Severity } from '../../src/core/types.js';
 
 const VULN = 'tests/fixtures/MCP002/vulnerable';
 
-describe('seleção de regras', () => {
-  it('ID desconhecido em --rules é exit 2, não scan silencioso', async () => {
+describe('rule selection', () => {
+  it('unknown ID in --rules is exit 2, not a silent scan', async () => {
     const r = await scan({ path: VULN, failOn: 'high', rules: ['MCP999'] });
     expect(r.exitCode).toBe(2);
     expect(r.error).toContain('MCP999');
-    expect(r.error).toContain('MCP002'); // lista as válidas
+    expect(r.error).toContain('MCP002'); // lists the valid ones
   });
 
-  it('ID desconhecido em --disable também é exit 2', async () => {
+  it('unknown ID in --disable is also exit 2', async () => {
     const r = await scan({ path: VULN, failOn: 'high', disable: ['MCP02'] });
     expect(r.exitCode).toBe(2);
     expect(r.error).toContain('MCP02');
   });
 
-  it('conjunto de regras vazio depois do filtro é exit 2', async () => {
+  it('empty rule set after filtering is exit 2', async () => {
     const r = await scan({ path: VULN, failOn: 'high', disable: ['MCP002'] });
     expect(r.exitCode).toBe(2);
     expect(r.error).toBeTruthy();
   });
 
-  it('ID conhecido continua funcionando', async () => {
+  it('a known ID still works', async () => {
     const r = await scan({ path: VULN, failOn: 'high', rules: ['MCP002'] });
     expect(r.exitCode).toBe(1);
     expect(r.error).toBeUndefined();
   });
 });
 
-describe('nada para escanear', () => {
-  it('zero subjects é exit 2, não tique verde', async () => {
+describe('nothing to scan', () => {
+  it('zero subjects is exit 2, not a green checkmark', async () => {
     const r = await scan({ path: 'tests/fixtures/empty', failOn: 'high' });
     expect(r.exitCode).toBe(2);
     expect(r.error).toContain('tests/fixtures/empty');
   });
 
-  it('stats separa arquivos examinados de arquivos com tools', async () => {
+  it('stats separate files scanned from files with tools', async () => {
     const r = await scan({ path: VULN, failOn: 'high' });
     expect(r.stats).toEqual({ filesExamined: 1, filesWithTools: 1, tools: 1, skills: 0 });
   });
 });
 
-describe('--fail-on inválido', () => {
-  it('valor fora do conjunto é exit 2', async () => {
+describe('invalid --fail-on', () => {
+  it('a value outside the set is exit 2', async () => {
     const r = await scan({ path: VULN, failOn: 'NONE' as Severity });
     expect(r.exitCode).toBe(2);
     expect(r.error).toContain('NONE');
   });
 
-  it('não deixa o limiar aceitar tudo silenciosamente', async () => {
+  it('does not let the threshold silently accept everything', async () => {
     const r = await scan({ path: VULN, failOn: 'NONE' as Severity });
     expect(r.exitCode).not.toBe(1);
     expect(r.exitCode).not.toBe(0);

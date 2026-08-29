@@ -2,7 +2,7 @@ import type { Severity } from './types.js';
 
 export const SEVERITY_ORDER = ['info', 'low', 'medium', 'high', 'critical'] as const;
 
-/** Valores aceitos por `--fail-on`. */
+/** Values accepted by `--fail-on`. */
 export const FAIL_ON_VALUES = [...SEVERITY_ORDER, 'none'] as const;
 export type FailOn = (typeof FAIL_ON_VALUES)[number];
 
@@ -11,13 +11,13 @@ export function isFailOn(v: unknown): v is FailOn {
 }
 
 /**
- * `indexOf` devolvia -1 para valor desconhecido e `atLeast` passava a aceitar
- * qualquer severidade — `--fail-on NONE` (maiúsculo) desligava o limiar em silêncio.
- * Melhor estourar: o scan converte a exceção em exit 2.
+ * `indexOf` used to return -1 for an unknown value and `atLeast` would then accept
+ * any severity — `--fail-on NONE` (uppercase) silently disabled the threshold.
+ * Better to throw: the scan converts the exception into exit 2.
  */
 export function rank(s: Severity): number {
   const i = (SEVERITY_ORDER as readonly string[]).indexOf(s);
-  if (i < 0) throw new Error(`severidade desconhecida: ${String(s)}`);
+  if (i < 0) throw new Error(`unknown severity: ${String(s)}`);
   return i;
 }
 

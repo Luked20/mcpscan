@@ -5,7 +5,7 @@ import type { ScanStats } from '../scan.js';
 export interface PrettyOptions {
   color: boolean;
   stats: ScanStats;
-  /** Presente quando o scan não conseguiu olhar (exit 2). */
+  /** Present when the scan couldn't look at anything (exit 2). */
   error?: string;
 }
 
@@ -34,20 +34,20 @@ export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   const c = (fn: (s: string) => string, s: string) => (opts.color ? fn(s) : s);
   const { filesExamined, filesWithTools, tools, skills } = opts.stats;
   const lines: string[] = [
-    `mcpscan · ${filesExamined} arquivo(s) examinado(s) · ${filesWithTools} com tools · ` +
+    `mcpscan · ${filesExamined} file(s) scanned · ${filesWithTools} with tools · ` +
     `${tools} tool(s) · ${skills} skill(s)`,
     '',
   ];
 
-  // Um scan que não conseguiu olhar não pode ter a mesma cara de um scan limpo.
+  // A scan that couldn't look at anything must not look like a clean scan.
   if (opts.error !== undefined) {
     if (findings.length > 0) lines.push(...findingLines(findings, c));
-    lines.push(c(pc.red, `não consegui olhar: ${opts.error}`), '');
+    lines.push(c(pc.red, `Nothing scanned: ${opts.error}`), '');
     return lines.join('\n');
   }
 
   if (findings.length === 0) {
-    lines.push(c(pc.green, 'Nenhum problema encontrado.'), '');
+    lines.push(c(pc.green, 'No problems found.'), '');
     return lines.join('\n');
   }
 

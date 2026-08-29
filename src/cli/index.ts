@@ -8,19 +8,19 @@ import { formatGithub } from '../report/github.js';
 import { validateFormat } from '../report/format.js';
 import { RULES } from '../rules/index.js';
 import type { Severity } from '../core/types.js';
-// Lido em tempo de build pelo esbuild/tsup (JSON import é resolvido estaticamente
-// pelo caminho do arquivo-fonte), não em tempo de execução — sobrevive ao bundling.
+// Read at build time by esbuild/tsup (a JSON import is resolved statically from
+// the source file's path), not at runtime — survives bundling.
 import pkg from '../../package.json' with { type: 'json' };
 
 const program = new Command()
   .name('mcpscan')
-  .argument('[path]', 'diretório ou arquivo para analisar', '.')
+  .argument('[path]', 'directory or file to scan', '.')
   .option('--format <fmt>', 'pretty | json | sarif | github')
-  .option('--output <file>', 'escreve no arquivo em vez do stdout')
+  .option('--output <file>', 'write to a file instead of stdout')
   .option('--fail-on <sev>', 'critical | high | medium | low | none', 'high')
-  .option('--rules <ids>', 'roda só estas regras (separadas por vírgula)')
-  .option('--disable <ids>', 'desliga estas regras (separadas por vírgula)')
-  .option('--no-color', 'desativa cores');
+  .option('--rules <ids>', 'run only these rules (comma-separated)')
+  .option('--disable <ids>', 'turn off these rules (comma-separated)')
+  .option('--no-color', 'disable colors');
 
 program.parse();
 const opts = program.opts();
@@ -31,7 +31,7 @@ const format = opts['format'] ?? (isTty ? 'pretty' : 'json');
 const formatError = validateFormat(format);
 if (formatError) {
   process.stderr.write(`mcpscan: ${formatError}\n`);
-  // Sem process.exit(): ele pode truncar o stdout quando é um pipe.
+  // No process.exit(): it can truncate stdout when it's a pipe.
   process.exitCode = 2;
 } else {
   const result = await scan({
@@ -41,8 +41,8 @@ if (formatError) {
     ...(opts['disable'] ? { disable: String(opts['disable']).split(',') } : {}),
   });
 
-  // O erro vai para o stderr, mas o relatório continua sendo emitido: com uma regra
-  // quebrada os findings já coletados valem um relatório parcial.
+  // The error goes to stderr, but the report is still emitted: with a broken
+  // rule, the findings already collected are still worth a partial report.
   if (result.error) process.stderr.write(`mcpscan: ${result.error}\n`);
 
   const rendered = format === 'pretty'

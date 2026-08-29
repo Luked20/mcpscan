@@ -1,19 +1,19 @@
-/** Formatos de saída realmente implementados. */
+/** Output formats actually implemented. */
 export const FORMATS = ['pretty', 'json', 'sarif', 'github'] as const;
 export type Format = (typeof FORMATS)[number];
 
-/** Anunciados no SPEC, ainda não implementados — rejeitar é mais honesto que emitir JSON. */
+/** Announced in the SPEC, not yet implemented — rejecting is more honest than emitting JSON. */
 export const PLANNED_FORMATS = [] as const;
 
 export function isFormat(v: unknown): v is Format {
   return typeof v === 'string' && (FORMATS as readonly string[]).includes(v);
 }
 
-/** `null` quando o valor é válido; senão a mensagem de erro para o exit 2. */
+/** `null` when the value is valid; otherwise the error message for exit 2. */
 export function validateFormat(v: unknown): string | null {
   if (isFormat(v)) return null;
   const planned = (PLANNED_FORMATS as readonly string[]).includes(String(v))
-    ? ` (${String(v)} ainda não está implementado)`
+    ? ` (${String(v)} is not implemented yet)`
     : '';
-  return `--format inválido: ${String(v)}. Use: ${FORMATS.join(' | ')}${planned}`;
+  return `invalid --format: ${String(v)}. Use: ${FORMATS.join(' | ')}${planned}`;
 }

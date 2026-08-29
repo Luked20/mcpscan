@@ -1,6 +1,6 @@
 import type { SourceLocation } from './types.js';
 
-/** Offsets onde cada linha começa. Índice 0 = linha 1. */
+/** Offsets where each line starts. Index 0 = line 1. */
 export function createLineIndex(text: string): number[] {
   const starts = [0];
   for (let i = 0; i < text.length; i++) {
@@ -10,9 +10,9 @@ export function createLineIndex(text: string): number[] {
 }
 
 /**
- * `textLength` é obrigatório de propósito: sem ele um offset fora do texto vira
- * uma posição inventada (offset -5 -> coluna -4; offset 999 num texto de 3 chars
- * -> coluna 998) que o SARIF anota como se fosse real.
+ * `textLength` is required on purpose: without it, an out-of-range offset turns
+ * into a made-up position (offset -5 -> column -4; offset 999 in a 3-char text
+ * -> column 998) that SARIF then annotates as if it were real.
  */
 export function offsetToPosition(
   lineStarts: number[],

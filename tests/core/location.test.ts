@@ -4,38 +4,38 @@ import { createLineIndex, offsetToPosition, makeLocation } from '../../src/core/
 const TEXT = 'linha um\nlinha dois\n\nlinha quatro';
 
 describe('location', () => {
-  it('offset 0 é linha 1 coluna 1', () => {
+  it('offset 0 is line 1 column 1', () => {
     expect(offsetToPosition(createLineIndex(TEXT), 0, TEXT.length)).toEqual({ line: 1, column: 1 });
   });
-  it('primeiro char da linha 2', () => {
+  it('first char of line 2', () => {
     expect(offsetToPosition(createLineIndex(TEXT), 9, TEXT.length)).toEqual({ line: 2, column: 1 });
   });
-  it('linha vazia', () => {
+  it('empty line', () => {
     expect(offsetToPosition(createLineIndex(TEXT), 20, TEXT.length)).toEqual({ line: 3, column: 1 });
   });
-  it('último char', () => {
+  it('last char', () => {
     const idx = createLineIndex(TEXT);
     expect(offsetToPosition(idx, TEXT.length - 1, TEXT.length)).toEqual({ line: 4, column: 12 });
   });
-  it('offset negativo é preso no início do texto', () => {
+  it('negative offset is clamped to the start of the text', () => {
     expect(offsetToPosition(createLineIndex(TEXT), -5, TEXT.length)).toEqual({ line: 1, column: 1 });
   });
-  it('offset além do fim é preso no fim do texto', () => {
-    // Antes: offset 999 num texto de 33 chars devolvia coluna 998 — uma coluna
-    // que não existe, direto para uma anotação impossível no SARIF.
+  it('offset past the end is clamped to the end of the text', () => {
+    // Before: offset 999 in a 33-char text returned column 998 — a column that
+    // doesn't exist, straight into an impossible SARIF annotation.
     expect(offsetToPosition(createLineIndex(TEXT), 999, TEXT.length))
       .toEqual(offsetToPosition(createLineIndex(TEXT), TEXT.length, TEXT.length));
   });
-  it('offset além do fim num texto de 3 chars', () => {
+  it('offset past the end in a 3-char text', () => {
     const t = 'ab\n';
     expect(offsetToPosition(createLineIndex(t), 999, t.length)).toEqual({ line: 2, column: 1 });
   });
-  it('makeLocation prende o fim ao tamanho do texto', () => {
+  it('makeLocation clamps the end to the length of the text', () => {
     const loc = makeLocation('a.json', TEXT, 0, 9999);
     expect(loc.endLine).toBe(4);
     expect(loc.endColumn).toBe(13);
   });
-  it('makeLocation produz início e fim', () => {
+  it('makeLocation produces start and end', () => {
     const loc = makeLocation('a/b.json', TEXT, 9, 5, 'tools[0].name');
     expect(loc).toEqual({
       file: 'a/b.json', line: 2, column: 1, endLine: 2, endColumn: 6,

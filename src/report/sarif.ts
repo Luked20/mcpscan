@@ -9,13 +9,13 @@ const SECURITY_SCORE: Record<Severity, string> = {
   critical: '9.0', high: '7.5', medium: '5.0', low: '3.0', info: '1.0',
 };
 
-/** Uri relativa em SARIF usa sempre '/', mesmo coletado em Windows. */
+/** A relative URI in SARIF always uses '/', even when collected on Windows. */
 const toPosix = (file: string): string => file.split('\\').join('/');
 
 /**
- * Fingerprint estável entre commits. NÃO inclui número de linha: se incluísse,
- * qualquer edição acima do finding criaria um alerta novo no GitHub e o usuário
- * desligaria a ferramenta na segunda semana.
+ * Fingerprint stable across commits. Does NOT include the line number: if it
+ * did, any edit above the finding would create a new alert on GitHub and the
+ * user would turn the tool off within the second week.
  */
 function fingerprint(f: Finding): string {
   return createHash('sha256')
@@ -36,8 +36,8 @@ export function formatSarif(findings: Finding[], rules: Rule[], version: string)
           informationUri: 'https://github.com/luked20/mcpscan',
           rules: rules.map((r) => ({
             id: r.id,
-            // SARIF exige name != id quando ambos presentes (SARIF1001): id é o
-            // identificador estável e opaco, name é o rótulo legível.
+            // SARIF requires name != id when both are present (SARIF1001): id is the
+            // stable, opaque identifier, name is the human-readable label.
             name: r.title,
             shortDescription: { text: r.title },
             fullDescription: { text: r.owasp ? `${r.title} (OWASP MCP: ${r.owasp})` : r.title },

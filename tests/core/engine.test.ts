@@ -11,39 +11,39 @@ const target = (tools: ToolDefinition[]): ScanTarget =>
   ({ root: '.', servers: [], tools, skills: [], sourceFiles: [], filesExamined: 1 });
 
 const noisy: Rule = {
-  id: 'TEST001', title: 'ruidosa', severity: 'critical', confidence: 'low',
+  id: 'TEST001', title: 'noisy', severity: 'critical', confidence: 'low',
   appliesTo: 'tool',
   check: () => [{ location: loc, message: 'm', remediation: 'r' }],
 };
 
-/** Emite um finding numa localização fixa, para exercitar os desempates da ordenação. */
+/** Emits a finding at a fixed location, to exercise the ordering tie-breakers. */
 const atRule = (id: string, location: SourceLocation): Rule => ({
-  id, title: 'fixa', severity: 'high', confidence: 'high', appliesTo: 'tool',
+  id, title: 'fixed', severity: 'high', confidence: 'high', appliesTo: 'tool',
   check: () => [{ location, message: 'm', remediation: 'r' }],
 });
 
 describe('engine', () => {
-  it('preenche metadados da regra no finding', () => {
+  it('fills in the rule metadata on the finding', () => {
     const [f] = runRules(target([tool('a')]), [noisy], 'https://x/').findings;
     expect(f!.ruleId).toBe('TEST001');
     expect(f!.helpUri).toBe('https://x/TEST001.md');
     expect(f!.provenance).toBe('static');
   });
 
-  it('aplica o teto de confiança: low nunca vira critical', () => {
+  it('applies the confidence ceiling: low never becomes critical', () => {
     const [f] = runRules(target([tool('a')]), [noisy], 'https://x/').findings;
     expect(f!.severity).toBe('medium');
   });
 
-  it('ordena por severidade decrescente', () => {
+  it('sorts by descending severity', () => {
     const low: Rule = { ...noisy, id: 'TEST002', severity: 'low', confidence: 'high' };
     const out = runRules(target([tool('a')]), [low, noisy], 'https://x/').findings;
     expect(out.map((f) => f.ruleId)).toEqual(['TEST001', 'TEST002']);
   });
 
-  it('desempata por arquivo, depois linha, depois coluna, depois ruleId', () => {
-    // Os ids estão deliberadamente fora da ordem esperada: se qualquer desempate
-    // sumir, o resultado cai na ordem alfabética de ruleId e o teste falha.
+  it('breaks ties by file, then line, then column, then ruleId', () => {
+    // The ids are deliberately out of the expected order: if any tie-breaker
+    // disappears, the result falls back to alphabetical ruleId order and the test fails.
     const rules: Rule[] = [
       atRule('D', at('a.json', 1, 1)),
       atRule('C', at('a.json', 1, 5)),
@@ -55,7 +55,7 @@ describe('engine', () => {
     expect(out.map((f) => f.ruleId)).toEqual(['D', 'Z', 'C', 'B', 'A']);
   });
 
-  it('ordena linha numericamente, não lexicograficamente', () => {
+  it('sorts line numerically, not lexicographically', () => {
     const out = runRules(target([tool('a')]), [
       atRule('R1', at('a.json', 10, 1)),
       atRule('R2', at('a.json', 9, 1)),
@@ -63,9 +63,9 @@ describe('engine', () => {
     expect(out.map((f) => f.location.line)).toEqual([9, 10]);
   });
 
-  it('ordena arquivos por codepoint, não pelo ICU do host', () => {
-    // localeCompare em en-US coloca 'a.json' antes de 'A.json'; a ordem por
-    // codepoint é a única estável entre máquinas.
+  it('sorts files by codepoint, not by the host ICU', () => {
+    // localeCompare in en-US puts 'a.json' before 'A.json'; codepoint order
+    // is the only one stable across machines.
     const out = runRules(target([tool('a')]), [
       atRule('R1', at('a.json', 1, 1)),
       atRule('R2', at('A.json', 1, 1)),
@@ -74,13 +74,13 @@ describe('engine', () => {
   });
 });
 
-describe('engine: regra que lança', () => {
+describe('engine: a rule that throws', () => {
   const boom: Rule = {
-    id: 'BOOM001', title: 'explode', severity: 'high', confidence: 'high', appliesTo: 'tool',
+    id: 'BOOM001', title: 'explodes', severity: 'high', confidence: 'high', appliesTo: 'tool',
     check: () => { throw new Error('Cannot read properties of undefined'); },
   };
 
-  it('reporta a falha em failures, não como finding info', () => {
+  it('reports the failure in failures, not as an info finding', () => {
     const r = runRules(target([tool('a'), tool('b'), tool('c')]), [boom], 'https://x/');
     expect(r.findings).toEqual([]);
     expect(r.failures).toEqual([
@@ -88,29 +88,29 @@ describe('engine: regra que lança', () => {
     ]);
   });
 
-  it('não emite uma entrada por subject', () => {
+  it('does not emit one entry per subject', () => {
     const r = runRules(target([tool('a'), tool('b'), tool('c')]), [boom], 'https://x/');
     expect(r.failures).toHaveLength(1);
   });
 
-  it('não silencia as outras regras', () => {
+  it('does not silence the other rules', () => {
     const r = runRules(target([tool('a')]), [boom, noisy], 'https://x/');
     expect(r.findings.map((f) => f.ruleId)).toEqual(['TEST001']);
     expect(r.failures.map((f) => f.ruleId)).toEqual(['BOOM001']);
   });
 
-  it('não inventa localização de um server não relacionado', () => {
+  it('does not invent a location for an unrelated server', () => {
     const r = runRules(target([tool('a')]), [boom], 'https://x/');
     expect(r.findings.some((f) => f.ruleId === 'ENGINE001')).toBe(false);
   });
 });
 
 describe('registry', () => {
-  it('não tem IDs duplicados', () => {
+  it('has no duplicate IDs', () => {
     const ids = RULES.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
-  it('toda regra tem título e appliesTo', () => {
+  it('every rule has a title and appliesTo', () => {
     for (const r of RULES) {
       expect(r.title.length).toBeGreaterThan(0);
       expect(['tool', 'server', 'skill', 'sourceFile', 'target']).toContain(r.appliesTo);

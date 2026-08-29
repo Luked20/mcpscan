@@ -5,17 +5,17 @@ const loc = { file: 'a.json', line: 1, column: 1, endLine: 1, endColumn: 2 };
 const meta = { id: 'X001', title: 't', severity: 'high', confidence: 'high' } as const;
 
 /**
- * Guarda de regressão de *tipo*, não de runtime.
+ * A *type* regression guard, not a runtime one.
  *
- * Com o antigo `Rule<S>` genérico, uma regra declarando `appliesTo: 'tool'` mas
- * tipada como `Rule<SkillDefinition>` compilava sem erro (bivariância de parâmetro
- * em método). O engine passava um `ToolDefinition`, `subject.body.slice()` estourava,
- * e o throw virava um finding `info` -> exit 0 num scan completamente quebrado.
+ * With the old generic `Rule<S>`, a rule declaring `appliesTo: 'tool'` but typed
+ * `Rule<SkillDefinition>` compiled without error (method-parameter bivariance).
+ * The engine would pass a `ToolDefinition`, `subject.body.slice()` would throw,
+ * and the throw turned into an `info` finding -> exit 0 on a completely broken scan.
  *
- * O `@ts-expect-error` abaixo falha o build se o erro parar de acontecer.
+ * The `@ts-expect-error` below fails the build if the error stops happening.
  */
-describe('Rule é uma união discriminada por appliesTo', () => {
-  it('não aceita check(SkillDefinition) para appliesTo: tool', () => {
+describe('Rule is a union discriminated by appliesTo', () => {
+  it('does not accept check(SkillDefinition) for appliesTo: tool', () => {
     const wrong = {
       ...meta,
       appliesTo: 'tool',
@@ -24,12 +24,12 @@ describe('Rule é uma união discriminada por appliesTo', () => {
       ],
     } as const;
 
-    // @ts-expect-error appliesTo 'tool' exige check(subject: ToolDefinition, ...)
+    // @ts-expect-error appliesTo 'tool' requires check(subject: ToolDefinition, ...)
     const asRule: Rule = wrong;
     expect(asRule.appliesTo).toBe('tool');
   });
 
-  it('aceita check(ToolDefinition) para appliesTo: tool', () => {
+  it('accepts check(ToolDefinition) for appliesTo: tool', () => {
     const right: Rule = {
       ...meta,
       appliesTo: 'tool',

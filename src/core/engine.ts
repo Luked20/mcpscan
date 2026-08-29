@@ -8,11 +8,11 @@ function clamp(severity: Severity, ceiling: Severity): Severity {
   return rank(severity) > rank(ceiling) ? ceiling : severity;
 }
 
-/** Uma regra que lançou. Uma entrada por regra, não por subject. */
+/** A rule that threw. One entry per rule, not per subject. */
 export interface RuleFailure {
   ruleId: string;
-  message: string;      // mensagem da exceção
-  subjectCount: number; // quantos subjects falharam para essa regra
+  message: string;      // exception message
+  subjectCount: number; // how many subjects failed for this rule
 }
 
 export interface RuleRunResult {
@@ -26,7 +26,7 @@ interface Attempt {
   firstError?: string;
 }
 
-/** Roda `check` sobre cada subject, acumulando partials e contando as exceções. */
+/** Runs `check` over each subject, accumulating partials and counting exceptions. */
 function attempt<S>(subjects: readonly S[], run: (subject: S) => PartialFinding[]): Attempt {
   const partials: PartialFinding[] = [];
   let failedSubjects = 0;
@@ -36,8 +36,8 @@ function attempt<S>(subjects: readonly S[], run: (subject: S) => PartialFinding[
     try {
       partials.push(...run(subject));
     } catch (err) {
-      // Uma regra quebrada não pode derrubar o scan nem silenciar as outras — mas
-      // também não pode virar um finding `info` que o --fail-on ignora. Vira falha.
+      // A broken rule can't take down the scan or silence the others — but it also
+      // can't become an `info` finding that --fail-on ignores. It becomes a failure.
       failedSubjects += 1;
       firstError ??= err instanceof Error ? err.message : String(err);
     }
@@ -47,8 +47,8 @@ function attempt<S>(subjects: readonly S[], run: (subject: S) => PartialFinding[
 }
 
 function cmp(a: string | number, b: string | number): number {
-  // Sem localeCompare: a ordem não pode depender do ICU do host, senão JSON/SARIF
-  // deixam de ser byte-reproduzíveis entre máquinas.
+  // No localeCompare: ordering can't depend on the host's ICU, or JSON/SARIF
+  // output stops being byte-reproducible across machines.
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
@@ -72,7 +72,7 @@ export function runRules(target: ScanTarget, rules: Rule[], helpBaseUri: string)
     if (a.failedSubjects > 0) {
       failures.push({
         ruleId: rule.id,
-        message: a.firstError ?? 'erro desconhecido',
+        message: a.firstError ?? 'unknown error',
         subjectCount: a.failedSubjects,
       });
     }

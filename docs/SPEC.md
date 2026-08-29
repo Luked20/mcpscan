@@ -1,57 +1,57 @@
 # SPEC — mcpscan (MVP)
 
-Status: rascunho v1 · Data: 2026-08-28
-Documento-fonte de escopo: `CLAUDE.md` (contexto de mercado e posicionamento).
+Status: draft v1 · Date: 2026-08-28
+Scope source document: `CLAUDE.md` (market context and positioning).
 
 ---
 
-## 1. Resumo em uma frase
+## 1. One-sentence summary
 
-`npx mcpscan ./meu-server` lê definições de MCP tools e agent skills num diretório, aplica um conjunto de regras de detecção ancoradas no OWASP MCP Top 10, e emite findings com arquivo+linha, severidade e correção — em texto no terminal e em SARIF no CI.
+`npx mcpscan ./my-server` reads MCP tool and agent skill definitions in a directory, applies a set of detection rules anchored in the OWASP MCP Top 10, and emits findings with file+line, severity, and a fix — as terminal text, and as SARIF in CI.
 
-## 2. Critério de sucesso do MVP
+## 2. MVP success criteria
 
-O MVP está pronto quando um dev que nunca ouviu falar da ferramenta consegue:
+The MVP is ready when a dev who's never heard of the tool can:
 
-1. Rodar `npx mcpscan .` num repo de MCP server e ver findings reais em menos de 30s.
-2. Colar ~6 linhas de YAML num workflow e ver os findings anotados no PR via GitHub code scanning.
-3. Rodar contra 10 MCP servers populares e conhecidamente limpos e receber **zero** findings `high`/`critical`.
+1. Run `npx mcpscan .` in an MCP server repo and see real findings in under 30s.
+2. Paste ~6 lines of YAML into a workflow and see findings annotated on the PR via GitHub code scanning.
+3. Run it against 10 popular, known-clean MCP servers and get **zero** `high`/`critical` findings.
 
-O item 3 é o mais difícil e o mais importante. Ver §8.
+Item 3 is the hardest and most important. See §8.
 
-## 3. Fora de escopo (explicitamente)
+## 3. Out of scope (explicitly)
 
-Dashboard web, multi-tenant, SSO/RBAC, telemetria, gateway de runtime, auto-fix, análise de fluxo de dados interprocedural, execução sandboxed do servidor por padrão.
+Web dashboard, multi-tenant, SSO/RBAC, telemetry, runtime gateway, auto-fix, interprocedural data-flow analysis, sandboxed server execution by default.
 
 ---
 
-## 4. Superfícies de entrada
+## 4. Input surfaces
 
-A ferramenta recebe um caminho e precisa descobrir sozinha o que analisar. Quatro *collectors* independentes, cada um produzindo a IR normalizada (§5):
+The tool receives a path and has to figure out on its own what to analyze. Four independent *collectors*, each producing the normalized IR (§5):
 
-| Collector | Lê | Produz |
+| Collector | Reads | Produces |
 |---|---|---|
-| `mcp-config` | `.mcp.json`, `mcp.json`, `claude_desktop_config.json`, `.vscode/mcp.json` | `ServerDefinition[]` (transporte, comando, env, URL) |
-| `mcp-manifest` | JSON/YAML com `tools: [{name, description, inputSchema}]`, respostas salvas de `tools/list` | `ToolDefinition[]` |
-| `skill-md` | `**/SKILL.md` + arquivos irmãos referenciados | `SkillDefinition[]` |
-| `source` | `**/*.{ts,js,mjs,py}` | `SourceFile[]` para análise de sinks |
+| `mcp-config` | `.mcp.json`, `mcp.json`, `claude_desktop_config.json`, `.vscode/mcp.json` | `ServerDefinition[]` (transport, command, env, URL) |
+| `mcp-manifest` | JSON/YAML with `tools: [{name, description, inputSchema}]`, saved `tools/list` responses | `ToolDefinition[]` |
+| `skill-md` | `**/SKILL.md` + referenced sibling files | `SkillDefinition[]` |
+| `source` | `**/*.{ts,js,mjs,py}` | `SourceFile[]` for sink analysis |
 
-**Collector opcional `mcp-live` (flag `--connect`, NÃO default):** sobe o servidor via stdio e chama `tools/list`. É o dado mais fiel que existe, mas **executa código não confiável** — exatamente o que estamos auditando. Por isso é opt-in explícito, com aviso na saída, e o finding gerado carrega `provenance: "live"`.
+**Optional collector `mcp-live` (`--connect` flag, NOT default):** starts the server over stdio and calls `tools/list`. It's the most faithful data there is, but it **runs untrusted code** — exactly what we're auditing. That's why it's explicit opt-in, with a warning in the output, and the resulting finding carries `provenance: "live"`.
 
-> Decisão de projeto: o MVP é **estático por padrão**. Um scanner de segurança que precisa executar o alvo para funcionar não pode ser o primeiro comando que alguém roda.
+> Project decision: the MVP is **static by default**. A security scanner that needs to run its target to work can't be the first command someone runs.
 
 ---
 
-## 5. IR (representação intermediária)
+## 5. IR (intermediate representation)
 
-Tudo que os collectors produzem e tudo que as regras consomem passa por estes tipos. As regras nunca tocam em arquivos — só na IR. É isso que torna cada regra uma função pura testável.
+Everything the collectors produce and everything the rules consume passes through these types. Rules never touch files — only the IR. That's what makes every rule a testable pure function.
 
 ```ts
 type Severity   = 'critical' | 'high' | 'medium' | 'low' | 'info';
 type Confidence = 'high' | 'medium' | 'low';
 
 interface SourceLocation {
-  file: string;        // relativo ao root do scan, sempre com '/'
+  file: string;        // relative to the scan root, always with '/'
   line: number;        // 1-based
   column: number;      // 1-based
   endLine: number;
@@ -62,10 +62,10 @@ interface SourceLocation {
 interface ToolDefinition {
   name: string;
   description?: string;
-  inputSchema?: unknown;                 // JSON Schema cru
+  inputSchema?: unknown;                 // raw JSON Schema
   serverName?: string;
-  origin: SourceLocation;                // onde a tool foi declarada
-  loc(jsonPath: string): SourceLocation; // localização de um campo interno
+  origin: SourceLocation;                // where the tool was declared
+  loc(jsonPath: string): SourceLocation; // location of an inner field
 }
 
 interface ServerDefinition {
@@ -85,7 +85,7 @@ interface SkillDefinition {
   allowedTools?: string[];            // frontmatter 'allowed-tools'
   frontmatter: Record<string, unknown>;
   body: string;
-  bodyOffsetLine: number;             // linha onde o corpo começa (match -> linha real)
+  bodyOffsetLine: number;             // line where the body starts (match -> real line)
   referencedFiles: string[];
   origin: SourceLocation;
 }
@@ -97,28 +97,28 @@ interface Finding {
   confidence: Confidence;
   owasp?: string;                     // 'MCP03:2025 – Tool Poisoning'
   location: SourceLocation;
-  message: string;                    // O QUE está errado, em 1 frase
-  remediation: string;                // O QUE FAZER, em 1-2 frases, acionável
-  evidence?: string;                  // trecho casado, truncado em 120 chars, segredos redigidos
+  message: string;                    // WHAT is wrong, in 1 sentence
+  remediation: string;                // WHAT TO DO, in 1-2 actionable sentences
+  evidence?: string;                  // matched excerpt, truncated to 120 chars, secrets redacted
   helpUri: string;                    // .../docs/rules/MCP002.md
   provenance: 'static' | 'live';
 }
 ```
 
-### 5.1 Localização precisa é requisito, não enfeite
+### 5.1 Precise location is a requirement, not a nicety
 
-`JSON.parse` **destrói** a informação de posição. Sem linha exata o SARIF não anota o PR, e sem anotação no PR a ferramenta não entra no fluxo de ninguém.
+`JSON.parse` **destroys** position information. Without an exact line, SARIF can't annotate the PR, and without a PR annotation the tool doesn't enter anyone's workflow.
 
-- JSON/JSONC → `jsonc-parser` (Microsoft, zero deps) → AST com `offset`/`length` por nó.
-- YAML / frontmatter → `yaml` (eemeli) → CST com ranges.
-- Markdown (corpo de SKILL.md) → offset do match + `bodyOffsetLine`.
-- Offset → linha/coluna via um índice de quebras de linha construído uma vez por arquivo.
+- JSON/JSONC → `jsonc-parser` (Microsoft, zero deps) → AST with `offset`/`length` per node.
+- YAML / frontmatter → `yaml` (eemeli) → CST with ranges.
+- Markdown (SKILL.md body) → match offset + `bodyOffsetLine`.
+- Offset → line/column via a line-break index built once per file.
 
-`src/core/location.ts` é o único lugar que faz essa conversão.
+`src/core/location.ts` is the only place that does this conversion.
 
 ---
 
-## 6. Motor de regras
+## 6. Rule engine
 
 ```ts
 interface Rule<T> {
@@ -128,21 +128,21 @@ interface Rule<T> {
   confidence: Confidence;
   owasp?: string;
   appliesTo: 'tool' | 'server' | 'skill' | 'sourceFile' | 'target';
-  check(subject: T, ctx: ScanContext): Finding[];   // pura, síncrona, sem I/O
+  check(subject: T, ctx: ScanContext): Finding[];   // pure, synchronous, no I/O
 }
 ```
 
-Regras são registradas num array explícito em `src/rules/index.ts`. O engine itera `subjects × rules` e concatena findings. Sem herança, sem DI, sem descoberta dinâmica de plugin no MVP — um array explícito é mais fácil de ler, de testar e de tree-shakear.
+Rules are registered in an explicit array in `src/rules/index.ts`. The engine iterates `subjects × rules` and concatenates findings. No inheritance, no DI, no dynamic plugin discovery in the MVP — an explicit array is easier to read, test, and tree-shake.
 
-### 6.1 Teto de confiança
+### 6.1 Confidence ceiling
 
-O engine aplica um teto: **uma regra com `confidence: 'low'` nunca emite severidade acima de `medium`; só `confidence: 'high'` pode emitir `critical`.** Isso é verificado por teste no registry, não por disciplina humana.
+The engine applies a ceiling: **a rule with `confidence: 'low'` never emits a severity above `medium`; only `confidence: 'high'` can emit `critical`.** This is verified by a test on the registry, not by human discipline.
 
-> **O que este teto NÃO é.** Ele restringe a *metadata que o autor da regra escreve*, não a precisão real da regra. O MCP002 se declarava `critical`/`high` — o teto era no-op — e mesmo assim tinha quatro classes de falso positivo (§7.2). O teto impede publicar `critical`/`low`; ele **não** é a defesa contra falso positivo. A defesa é a largura das fixtures negativas por regra (§8) e o corpus de regressão.
+> **What this ceiling is NOT.** It constrains the *metadata the rule author writes*, not the rule's actual precision. MCP002 declared itself `critical`/`high` — the ceiling was a no-op — and it still had four classes of false positive (§7.2). The ceiling prevents publishing `critical`/`low`; it is **not** the defense against false positives. That defense is the breadth of each rule's negative fixtures (§8) and the regression corpus.
 
-### 6.2 `appliesTo` e o tipo do subject
+### 6.2 `appliesTo` and the subject's type
 
-`Rule` é uma **união discriminada por `appliesTo`**, não um genérico livre `Rule<S>`:
+`Rule` is a **union discriminated by `appliesTo`**, not a free generic `Rule<S>`:
 
 ```ts
 export type Rule =
@@ -151,87 +151,87 @@ export type Rule =
   | { appliesTo: 'server';     check(s: ServerDefinition, ctx: ScanContext): PartialFinding[] }
   | { appliesTo: 'sourceFile'; check(s: SourceFile,       ctx: ScanContext): PartialFinding[] }
   | { appliesTo: 'target';     check(s: ScanTarget,       ctx: ScanContext): PartialFinding[] }
-  ;  // + os campos comuns id/title/severity/confidence/owasp
+  ;  // + the common fields id/title/severity/confidence/owasp
 ```
 
-Com `Rule<S>` genérico, uma regra declarando `appliesTo: 'tool'` mas tipada como `Rule<SkillDefinition>` **compilava sem erro** (bivariância de parâmetro em método), o engine passava um `ToolDefinition`, e `subject.body.slice()` estourava em runtime — direto para o falso-limpo do §9. A união move esse erro para o typecheck. `PartialFinding` é exportado de `core/types.ts` uma única vez: repetir o `Omit<...>` em cada regra faz uma regra recuperar silenciosamente o direito de definir a própria severidade.
+With a generic `Rule<S>`, a rule declaring `appliesTo: 'tool'` but typed as `Rule<SkillDefinition>` **compiled without error** (method-parameter bivariance), the engine would pass a `ToolDefinition`, and `subject.body.slice()` would throw at runtime — straight into the false-clean of §9. The union moves that error to typecheck. `PartialFinding` is exported from `core/types.ts` exactly once: repeating the `Omit<...>` in every rule would let a rule silently regain the right to set its own severity.
 
 ---
 
-## 7. Catálogo de regras do MVP
+## 7. MVP rule catalog
 
-`→ FP` = o risco de falso positivo e como ele é mitigado.
+`→ FP` = the false-positive risk and how it's mitigated.
 
 ### MCP servers
 
-| ID | Nome | Sev | Conf | O que detecta |
+| ID | Name | Sev | Conf | What it detects |
 |---|---|---|---|---|
-| **MCP002** | `hidden-unicode-in-tool` | critical | high | Caracteres invisíveis em `name`/`description`/schema, com política por classe — ver §7.2. **Primeira regra a implementar.** |
-| **MCP001** | `tool-description-injection` | critical | high | Diretivas dirigidas ao modelo dentro de `description`: `<IMPORTANT>`, "ignore previous instructions", "do not tell the user", "before calling any other tool", "não mencione". → FP: exige padrão imperativo **e** alvo (modelo/usuário), não palavra solta. |
-| **MCP003** | `schema-field-injection` | critical | high | O mesmo padrão do MCP001, mas dentro de `inputSchema.properties.*.description` / `default` / `enum`. Campo de schema é lugar ainda menos legítimo para prosa imperativa. |
-| **MCP004** | `unconstrained-path-parameter` | high | medium | Param `string` cujo nome casa `path\|file\|filename\|dir\|target` **e** sem `pattern`/`enum`/`format` **e** a tool descreve leitura/escrita de arquivo. → FP: as três condições juntas; sem a terceira vira ruído. |
-| **MCP005** | `command-injection-surface` | critical | medium | Param que alimenta shell: nome casa `cmd\|command\|shell\|script\|exec`, ou tool nomeada `run_*`/`exec_*` com param string livre. |
-| **MCP008** | `dangerous-sink-in-source` | high | medium | No código-fonte: `eval(`, `new Function(`, `child_process.exec(` com template literal, `fs.readFile` com valor vindo direto de `request.params.arguments`. |
-| **MCP006** | `tool-shadowing` | high | medium | Duas tools com o mesmo nome em servers diferentes; ou `description` de uma tool citando o nome de outra com verbo imperativo ("when using `send_email`, first call…"). |
-| **MCP007** | `unpinned-server-provenance` | medium | high | Config com `npx -y pkg` sem versão fixa, `@latest`, `curl \| sh` no comando, ou URL `http://` sem TLS. |
-| **MCP009** | `secret-in-mcp-config` | high | high | Valor em `env` que casa formato de credencial conhecido (`sk-`, `ghp_`, `AKIA`, JWT). Evidência sempre redigida. |
+| **MCP002** | `hidden-unicode-in-tool` | critical | high | Invisible characters in `name`/`description`/schema, with a per-class policy — see §7.2. **First rule to implement.** |
+| **MCP001** | `tool-description-injection` | critical | high | Model-directed directives inside `description`: `<IMPORTANT>`, "ignore previous instructions", "do not tell the user", "before calling any other tool", "don't mention". → FP: requires an imperative pattern **and** a target (model/user), not a standalone word. |
+| **MCP003** | `schema-field-injection` | critical | high | The same pattern as MCP001, but inside `inputSchema.properties.*.description` / `default` / `enum`. A schema field is an even less legitimate place for imperative prose. |
+| **MCP004** | `unconstrained-path-parameter` | high | medium | A `string` param whose name matches `path\|file\|filename\|dir\|target` **and** has no `pattern`/`enum`/`format` **and** the tool describes reading/writing a file. → FP: all three conditions together; without the third it becomes noise. |
+| **MCP005** | `command-injection-surface` | critical | medium | A param feeding a shell: name matches `cmd\|command\|shell\|script\|exec`, or a tool named `run_*`/`exec_*` with a free-form string param. |
+| **MCP008** | `dangerous-sink-in-source` | high | medium | In source code: `eval(`, `new Function(`, `child_process.exec(` with a template literal, `fs.readFile` with a value coming straight from `request.params.arguments`. |
+| **MCP006** | `tool-shadowing` | high | medium | Two tools with the same name on different servers; or a tool's `description` naming another tool with an imperative verb ("when using `send_email`, first call…"). |
+| **MCP007** | `unpinned-server-provenance` | medium | high | Config with `npx -y pkg` without a pinned version, `@latest`, `curl \| sh` in the command, or an unencrypted `http://` URL. |
+| **MCP009** | `secret-in-mcp-config` | high | high | A value in `env` matching a known credential format (`sk-`, `ghp_`, `AKIA`, JWT). Evidence always redacted. |
 
 ### Agent skills
 
-| ID | Nome | Sev | Conf | O que detecta |
+| ID | Name | Sev | Conf | What it detects |
 |---|---|---|---|---|
-| **SKILL001** | `hidden-instructions-in-skill` | critical | high | Comentário HTML `<!-- … -->` contendo imperativo dirigido ao modelo; unicode invisível; blob base64 > 200 chars sem contexto. |
-| **SKILL002** | `skill-description-injection` | critical | high | MCP001 aplicado ao `description` do frontmatter — é o campo que o modelo lê sem o usuário ver. |
-| **SKILL003** | `undeclared-capability` | high | medium | Corpo instrui `curl`/`wget`/`rm -rf`/escrita fora do diretório do skill, mas `allowed-tools` no frontmatter não declara a capacidade correspondente. |
-| **SKILL004** | `remote-code-fetch` | high | high | `curl … \| sh`, `iwr … \| iex`, download de `raw.githubusercontent.com` sem commit SHA fixo. |
+| **SKILL001** | `hidden-instructions-in-skill` | critical | high | An HTML comment `<!-- … -->` containing a model-directed imperative; invisible unicode; a base64 blob > 200 chars with no context. |
+| **SKILL002** | `skill-description-injection` | critical | high | MCP001 applied to the frontmatter `description` — the field the model reads without the user seeing it. |
+| **SKILL003** | `undeclared-capability` | high | medium | The body instructs `curl`/`wget`/`rm -rf`/writes outside the skill's directory, but `allowed-tools` in the frontmatter doesn't declare the matching capability. |
+| **SKILL004** | `remote-code-fetch` | high | high | `curl … \| sh`, `iwr … \| iex`, a download from `raw.githubusercontent.com` without a pinned commit SHA. |
 
-### 7.2 MCP002 — política por classe de caractere
+### 7.2 MCP002 — per-character-class policy
 
-> **Correção de 2026-08-28.** A primeira especificação desta regra — "sinalize todo U+200B–200D, U+2060, U+FEFF, U+202A–202E, U+2066–2069" — foi implementada e **reprovada na revisão com quatro classes de falso positivo reproduzidas**. Registrado aqui porque o erro é instrutivo: "caractere invisível" parece uma categoria binária e não é.
+> **2026-08-28 correction.** The first spec for this rule — "flag every U+200B–200D, U+2060, U+FEFF, U+202A–202E, U+2066–2069" — was implemented and **failed review with four reproduced classes of false positive**. Recorded here because the mistake is instructive: "invisible character" looks like a binary category, and it isn't.
 >
-> | Entrada legítima | Disparava | Por quê é legítimo |
+> | Legitimate input | Triggered | Why it's legitimate |
 > |---|---|---|
-> | `Faz deploy 👩‍💻 rapido` | U+200D | Toda sequência emoji ZWJ usa U+200D |
-> | `می‌شود` (persa) | U+200C | ZWNJ é **ortografia obrigatória** em persa e em conjuntos devanágari |
-> | `اقرأ ⁨read_file⁩ ملف` | U+2068/U+2069 | Isolates são o que o **UAX #9 recomenda** para embutir identificador latino em texto RTL |
-> | `👨‍👩‍👧 🏳️‍🌈` | U+200D | Idem emoji |
+> | `Faz deploy 👩‍💻 rapido` | U+200D | Every emoji ZWJ sequence uses U+200D |
+> | `می‌شود` (Persian) | U+200C | ZWNJ is **required spelling** in Persian and in Devanagari-family scripts |
+> | `اقرأ ⁨read_file⁩ ملف` | U+2068/U+2069 | Isolates are what **UAX #9 recommends** for embedding a Latin identifier in RTL text |
+> | `👨‍👩‍👧 🏳️‍🌈` | U+200D | Same as emoji |
 >
-> Um scanner que marca CRITICAL numa descrição em persa perde o usuário na primeira execução.
+> A scanner that marks CRITICAL on a Persian description loses the user on the first run.
 
-**Sempre sinalizar** — nenhum uso legítimo em texto lido por máquina:
+**Always flag** — no legitimate use in machine-read text:
 
-| Classe | Codepoints |
+| Class | Codepoints |
 |---|---|
 | Tag characters | U+E0000–E007F |
-| Zero-width space / word joiner / BOM no meio da string | U+200B, U+2060, U+FEFF |
-| Overrides bidi | U+202D (LRO), U+202E (RLO) — forçam direção ignorando a classe do caractere; é o vetor do Trojan Source (CVE-2021-42574). Suspeitos mesmo quando balanceados. |
-| Corrida de seletores de variação | ≥ 3 consecutivos em U+FE00–FE0F ou U+E0100–E01EF. Um `U+FE0F` isolado é apresentação de emoji e **não** dispara. |
+| Zero-width space / word joiner / BOM in the middle of the string | U+200B, U+2060, U+FEFF |
+| Bidi overrides | U+202D (LRO), U+202E (RLO) — force direction regardless of the character's class; this is the Trojan Source vector (CVE-2021-42574). Suspicious even when balanced. |
+| Run of variation selectors | ≥ 3 consecutive in U+FE00–FE0F or U+E0100–E01EF. A single isolated `U+FE0F` is emoji presentation and does **not** trigger. |
 
-**Sinalizar só em contexto** — o caractere é legítimo, o uso é que denuncia:
+**Flag only in context** — the character itself is legitimate, the usage is what gives it away:
 
-| Classe | Condição para disparar |
+| Class | Trigger condition |
 |---|---|
-| ZWJ / ZWNJ (U+200C, U+200D) | Somente quando **ambos** os vizinhos são ASCII/latinos. Entre emoji, ou entre letras árabes/índicas, é uso normal. |
-| Embeddings bidi (U+202A LRE, U+202B RLE / U+202C PDF) | Somente quando **desbalanceados** na string |
-| Isolates bidi (U+2066 LRI, U+2067 RLI, U+2068 FSI / U+2069 PDI) | Somente quando **desbalanceados** na string |
+| ZWJ / ZWNJ (U+200C, U+200D) | Only when **both** neighbors are ASCII/Latin. Between emoji, or between Arabic/Indic letters, it's normal usage. |
+| Bidi embeddings (U+202A LRE, U+202B RLE / U+202C PDF) | Only when **unbalanced** in the string |
+| Bidi isolates (U+2066 LRI, U+2067 RLI, U+2068 FSI / U+2069 PDI) | Only when **unbalanced** in the string |
 
-**Nunca sinalizar:** marcas direcionais U+200E (LRM) e U+200F (RLM) — uso corriqueiro e inofensivo em texto bidirecional.
+**Never flag:** directional marks U+200E (LRM) and U+200F (RLM) — routine, harmless use in bidirectional text.
 
-As quatro entradas legítimas da tabela acima são **fixtures negativas obrigatórias** de MCP002.
+The four legitimate entries in the table above are **mandatory negative fixtures** for MCP002.
 
-#### Brecha de evasão conhecida e aceita
+#### Known and accepted evasion gap
 
-A condição "ambos os vizinhos latinos" para ZWJ/ZWNJ deixa uma costura: `read` + ZWJ + `😀` + texto oculto **não dispara**, porque o vizinho da direita não é latino. Confirmado por reprodução.
+The "both neighbors Latin" condition for ZWJ/ZWNJ leaves a seam: `read` + ZWJ + `😀` + hidden text **does not trigger**, because the right neighbor isn't Latin. Confirmed by reproduction.
 
-Fechar isso exigiria trocar por "**pelo menos um** vizinho latino". Nenhum uso legítimo conhecido de ZWJ/ZWNJ tem vizinho latino — em sequência emoji os dois lados são emoji, em persa e devanágari os dois lados são do próprio script — então a troca é *provavelmente* segura. Fica como **endurecimento candidato, não aplicado**, até a Task 28 ter corpus real para medir. Numa regra cujo valor inteiro é não gerar falso positivo, "provavelmente seguro" não basta para mexer na precisão.
+Closing this would require switching to "**at least one** Latin neighbor". No known legitimate use of ZWJ/ZWNJ has a Latin neighbor — in an emoji sequence both sides are emoji, in Persian and Devanagari both sides are the same script — so the change is *probably* safe. It stays a **candidate hardening, not applied**, until Task 28 has a real corpus to measure against. In a rule whose entire value is not generating false positives, "probably safe" isn't enough to touch precision.
 
-Isto é consistente com a limitação já declarada em §14: contra atacante adaptativo que conhece as regras, um casador de padrões não resiste. O README diz isso; a alternativa — fingir cobertura — custa mais confiança do que a brecha.
+This is consistent with the limitation already stated in §14: against an adaptive attacker who knows the rules, a pattern matcher doesn't hold up. The README says so; the alternative — pretending to have coverage — costs more trust than the gap does.
 
-### 7.1 Mapeamento para o OWASP MCP Top 10 (2025)
+### 7.1 Mapping to the OWASP MCP Top 10 (2025)
 
-IDs verificados em 2026-08-28 contra <https://owasp.org/www-project-mcp-top-10/>. O campo `owasp` de cada regra usa a string exata desta tabela — nunca um rótulo inventado.
+IDs verified on 2026-08-28 against <https://owasp.org/www-project-mcp-top-10/>. Each rule's `owasp` field uses the exact string from this table — never a made-up label.
 
-| OWASP | Título oficial | Regras |
+| OWASP | Official title | Rules |
 |---|---|---|
 | `MCP01:2025` | Token Mismanagement & Secret Exposure | MCP009 |
 | `MCP02:2025` | Privilege Escalation via Scope Creep | MCP004, SKILL003 |
@@ -240,27 +240,27 @@ IDs verificados em 2026-08-28 contra <https://owasp.org/www-project-mcp-top-10/>
 | `MCP05:2025` | Command Injection & Execution | MCP005, MCP008 |
 | `MCP06:2025` | Intent Flow Subversion | — |
 | `MCP07:2025` | Insufficient Authentication & Authorization | — |
-| `MCP08:2025` | Lack of Audit and Telemetry | — (fora de escopo: é camada enterprise) |
-| `MCP09:2025` | Shadow MCP Servers | — **lacuna conhecida, ver abaixo** |
+| `MCP08:2025` | Lack of Audit and Telemetry | — (out of scope: it's the enterprise layer) |
+| `MCP09:2025` | Shadow MCP Servers | — **known gap, see below** |
 | `MCP10:2025` | Context Injection & Over-Sharing | SKILL001, SKILL002 |
 
-"Schema poisoning" e "tool shadowing" **não são categorias próprias** no OWASP MCP Top 10 — são sub-técnicas de `MCP03:2025 – Tool Poisoning`. MCP003 e MCP006 mapeiam para MCP03 e distinguem o caso pelo `title` da regra.
+"Schema poisoning" and "tool shadowing" are **not their own categories** in the OWASP MCP Top 10 — they're sub-techniques of `MCP03:2025 – Tool Poisoning`. MCP003 and MCP006 both map to MCP03 and are told apart by the rule's `title`.
 
-**Lacuna assumida no MVP — `MCP09:2025 Shadow MCP Servers`.** O CLAUDE.md pede "shadow servers" no escopo, mas o MVP não cobre de verdade: MCP007 detecta *proveniência não fixada* (supply chain, MCP04), o que é adjacente mas diferente. Detectar shadow server de verdade exige comparar o que está declarado com o que realmente responde — ou seja, depende do collector `mcp-live` (`--connect`), que ficou fora do MVP por executar código não confiável. Documentar a lacuna no README em vez de dar a entender que está coberta.
+**Accepted gap in the MVP — `MCP09:2025 Shadow MCP Servers`.** CLAUDE.md asks for "shadow servers" in scope, but the MVP doesn't really cover it: MCP007 detects *unpinned provenance* (supply chain, MCP04), which is adjacent but different. Truly detecting a shadow server requires comparing what's declared against what actually responds — which depends on the `mcp-live` collector (`--connect`), which was left out of the MVP because it runs untrusted code. Document the gap in the README instead of implying it's covered.
 
-Cada regra tem `docs/rules/<ID>.md` com: exemplo vulnerável, exemplo limpo, por que é risco, como corrigir, como suprimir. O `helpUri` do finding aponta pra lá.
+Every rule has `docs/rules/<ID>.md` with: a vulnerable example, a clean example, why it's a risk, how to fix it, how to suppress it. The finding's `helpUri` points there.
 
 ---
 
-## 8. Controle de falso positivo (o requisito que mata o produto se falhar)
+## 8. False-positive control (the requirement that kills the product if it fails)
 
-Três mecanismos, todos automatizados:
+Three mechanisms, all automated:
 
-1. **Fixture par obrigatório.** Toda regra tem `tests/fixtures/<ID>/vulnerable/` e `tests/fixtures/<ID>/clean/`. Um teste no registry falha se alguma regra registrada não tiver ambos.
-2. **Corpus de regressão.** `tests/corpus/` contém manifests reais de MCP servers populares conhecidamente limpos (commitados como fixtures, não baixados em runtime). Teste: `scan(corpus)` retorna **zero** findings `high`/`critical`. Regra nova que quebre esse teste não entra.
-3. **Supressão com justificativa obrigatória.**
-   `// mcpscan-disable-next-line MCP004 -- path é validado em validatePath()`
-   Sem o `--` e o motivo, a supressão é ignorada e vira finding `info` de "supressão malformada".
+1. **Mandatory fixture pair.** Every rule has `tests/fixtures/<ID>/vulnerable/` and `tests/fixtures/<ID>/clean/`. A registry test fails if any registered rule is missing either.
+2. **Regression corpus.** `tests/corpus/` holds real manifests from popular, known-clean MCP servers (committed as fixtures, not downloaded at runtime). Test: `scan(corpus)` returns **zero** `high`/`critical` findings. A new rule that breaks this test doesn't ship.
+3. **Suppression with a mandatory justification.**
+   `// mcpscan-disable-next-line MCP004 -- path is validated in validatePath()`
+   Without the `--` and the reason, the suppression is ignored and becomes an `info` finding for "malformed suppression".
 
 ---
 
@@ -269,81 +269,79 @@ Três mecanismos, todos automatizados:
 ```
 mcpscan [path]                       # default: '.'
 
-  --format <fmt>      pretty | json | sarif | github   (default: pretty se TTY, json se não)
-  --output <file>     escreve no arquivo em vez do stdout
+  --format <fmt>      pretty | json | sarif | github   (default: pretty if TTY, json otherwise)
+  --output <file>     write to a file instead of stdout
   --fail-on <sev>     critical | high | medium | low | none   (default: high)
-  --rules <ids>       lista separada por vírgula; roda só estas
-  --disable <ids>     desliga regras específicas
-  --connect           sobe o server e usa tools/list (executa código do alvo — opt-in)
-  --baseline <file>   ignora findings já presentes no baseline
+  --rules <ids>       comma-separated list; run only these
+  --disable <ids>     turn off specific rules
+  --connect           starts the server and uses tools/list (runs the target's code — opt-in)
+  --baseline <file>   ignores findings already present in the baseline
   --config <file>     default: mcpscan.config.json
   --no-color
   --quiet
 ```
 
-**Exit codes** (contrato estável — o CI depende disso):
+**Exit codes** (stable contract — CI depends on this):
 
-| Código | Significado |
+| Code | Meaning |
 |---|---|
-| 0 | Nenhum finding no nível de `--fail-on` ou acima |
-| 1 | Findings no nível de `--fail-on` ou acima |
-| 2 | Erro de execução — **"não consegui olhar"** |
+| 0 | No finding at the `--fail-on` level or above |
+| 1 | Findings at the `--fail-on` level or above |
+| 2 | Execution error — **"couldn't look"** |
 
-Distinguir 1 de 2 importa: `1` é "achei problema", `2` é "não consegui olhar". Um CI que trata os dois igual esconde scanner quebrado como se fosse repo limpo.
+Telling 1 from 2 matters: `1` means "found a problem", `2` means "couldn't look". A CI that treats both the same hides a broken scanner as if it were a clean repo.
 
-**Toda condição de exit 2** (lista fechada — a revisão da Fase 1 mostrou que quase todas retornavam 0 silenciosamente):
+**Every exit-2 condition** (closed list — the Phase 1 review showed almost all of them were silently returning 0):
 
-| Condição | Por que é exit 2, não 0 |
+| Condition | Why it's exit 2, not 0 |
 |---|---|
-| Caminho não existe | Óbvio |
-| Nenhuma regra ativa após `--rules`/`--disable` | Um typo (`--rules MCP02`) desligava o scanner sem sinal |
-| ID de regra desconhecido em `--rules`/`--disable` | Idem |
-| Valor inválido em `--fail-on` ou `--format` | `--fail-on NONE` (maiúsculo) fazia `rank()` devolver `-1` e o limiar aceitar tudo |
-| **Zero subjects descobertos** | Apontar para o diretório errado dava tique verde idêntico a um scan limpo de verdade |
-| **Uma regra lançou exceção** | Regra quebrada virava finding `info`; com `--fail-on high` o CI ficava verde. Um bug em qualquer regra transformava-se em falso-limpo silencioso. |
+| Path doesn't exist | Obvious |
+| No active rule after `--rules`/`--disable` | A typo (`--rules MCP02`) turned off the scanner with no signal |
+| Unknown rule ID in `--rules`/`--disable` | Same |
+| Invalid value in `--fail-on` or `--format` | `--fail-on NONE` (uppercase) made `rank()` return `-1` and the threshold accept everything |
+| **Zero subjects discovered** | Pointing at the wrong directory gave the same green checkmark as a genuinely clean scan |
+| **A rule threw an exception** | A broken rule turned into an `info` finding; with `--fail-on high` CI stayed green. A bug in any rule turned into a silent false-clean. |
 
-O relatório de um scan com zero subjects **não pode** ser visualmente igual ao de um scan limpo. `stats` reporta duas contagens distintas: arquivos **examinados** e arquivos que **produziram** tools.
+The report for a scan with zero subjects **must not** look visually identical to a clean scan. `stats` reports two distinct counts: files **scanned** and files that **produced** tools.
 
-### 9.1 Saída `pretty`
+### 9.1 `pretty` output
 
-Saída real de `mcpscan tests/fixtures/MCP002/vulnerable --no-color` (exit 1):
+Real output of `mcpscan tests/fixtures/MCP002/vulnerable --no-color` (exit 1):
 
 ```
-mcpscan · 1 arquivo(s) examinado(s) · 1 com tools · 1 tool(s) · 0 skill(s)
+mcpscan · 1 file(s) scanned · 1 with tools · 1 tool(s) · 0 skill(s)
 
-CRITICAL  MCP002  Caractere Unicode invisível em definição de tool
+CRITICAL  MCP002  Invisible Unicode character in tool definition
   tools.json:5:22  tools[0].description
-  A tool "read_file" tem 6 caractere(s) invisível(is) em `description`:
-  U+E0049 (tag character), U+E0067 (tag character), ...
-  Fix: Remova os caracteres invisíveis. Esse texto é lido pelo modelo e não
-       aparece para o usuário — conteúdo invisível ali é instrução oculta.
+  Tool "read_file" has 6 invisible character(s) in `description`: U+E0049 (tag character), U+E0067 (tag character), U+E006E (tag character), U+E006F (tag character), U+E0072 (tag character), U+E0065 (tag character).
+  Fix: Remove the invisible characters. This text is read by the model and never shown to the user — invisible content here is a hidden instruction, not formatting.
   https://github.com/luked20/mcpscan/blob/main/docs/rules/MCP002.md
 
   1 critical
 ```
 
-Regras da saída: severidade primeiro, localização clicável em `file:line:col`, `Fix:` sempre presente, link sempre presente. Sem banner ASCII, sem emoji, sem spinner.
+Output rules: severity first, a clickable location as `file:line:col`, `Fix:` always present, a link always present. No ASCII banner, no emoji, no spinner.
 
-**Duas contagens no cabeçalho, não uma.** `examinado(s)` é quantos arquivos o scanner abriu; `com tools` é quantos produziram algo analisável. Uma contagem só confunde "olhei 40 arquivos e 1 tinha tools" com "só olhei 1 arquivo" — e essa confusão é a diferença entre um scan bom e um scan que não rodou.
+**Two counts in the header, not one.** `scanned` is how many files the scanner opened; `with tools` is how many produced something analyzable. A single count would confuse "I looked at 40 files and 1 had tools" with "I only looked at 1 file" — and that confusion is the difference between a good scan and a scan that didn't run.
 
 ---
 
 ## 10. SARIF
 
-Prioridade desde a Fase 2 — é o que faz plugar em GitHub code scanning sem esforço do usuário.
+A priority since Phase 2 — it's what plugs into GitHub code scanning with no effort from the user.
 
-- `runs[].tool.driver.rules[]` — um por regra registrada, com `id`, `name`, `shortDescription`, `fullDescription`, `helpUri`, `defaultConfiguration.level`.
-- `runs[].results[]` — `ruleId`, `level`, `message.text`, `locations[].physicalLocation` com `artifactLocation.uri` (relativo, `/`) e `region` (`startLine`, `startColumn`, `endLine`, `endColumn`).
-- `partialFingerprints["mcpScan/v1"]` = hash(ruleId + caminho + jsonPath + evidência normalizada).
-  **Sem fingerprint estável o GitHub reabre o mesmo alerta a cada commit** e o usuário desliga a ferramenta. O fingerprint **não pode** incluir número de linha — senão qualquer edição acima gera alerta novo.
+- `runs[].tool.driver.rules[]` — one per registered rule, with `id`, `name`, `shortDescription`, `fullDescription`, `helpUri`, `defaultConfiguration.level`.
+- `runs[].results[]` — `ruleId`, `level`, `message.text`, `locations[].physicalLocation` with `artifactLocation.uri` (relative, `/`) and `region` (`startLine`, `startColumn`, `endLine`, `endColumn`).
+- `partialFingerprints["mcpScan/v1"]` = hash(ruleId + path + jsonPath + normalized evidence).
+  **Without a stable fingerprint, GitHub reopens the same alert on every commit** and the user turns the tool off. The fingerprint **must not** include the line number — otherwise any edit above it generates a new alert.
 
-Severidade → SARIF `level`: critical/high → `error`, medium → `warning`, low/info → `note`.
+Severity → SARIF `level`: critical/high → `error`, medium → `warning`, low/info → `note`.
 
 ---
 
 ## 11. GitHub Action
 
-`action.yml` na raiz, para uso direto `uses: luked20/mcpscan@v1`:
+`action.yml` at the root, for direct use as `uses: luked20/mcpscan@v1`:
 
 ```yaml
 - uses: luked20/mcpscan@v1
@@ -355,52 +353,52 @@ Severidade → SARIF `level`: critical/high → `error`, medium → `warning`, l
     sarif_file: mcpscan.sarif
 ```
 
-A Action é um wrapper fino: roda `npx mcpscan --format sarif --output mcpscan.sarif`. Nenhuma lógica nova.
+The Action is a thin wrapper: it runs `npx mcpscan --format sarif --output mcpscan.sarif`. No new logic.
 
 ---
 
 ## 12. Stack
 
-| Peça | Escolha | Por quê |
+| Piece | Choice | Why |
 |---|---|---|
-| Linguagem | TypeScript, ESM, Node ≥ 20 | Distribuição npm/npx é o canal |
-| Testes | Vitest | Rápido, ESM nativo, snapshot embutido |
-| Build | tsup → bundle único ESM | `npx` de pacote não-bundlado é lento; startup é UX |
-| JSON c/ posição | `jsonc-parser` | Zero deps, AST com offsets |
-| YAML c/ posição | `yaml` | CST com ranges |
-| Glob | `tinyglobby` | Leve |
-| CLI | `commander` | Padrão, previsível |
-| Cor | `picocolors` | ~2 kB |
+| Language | TypeScript, ESM, Node ≥ 20 | npm/npx distribution is the channel |
+| Tests | Vitest | Fast, native ESM, built-in snapshots |
+| Build | tsup → single ESM bundle | `npx` on an unbundled package is slow; startup is UX |
+| JSON w/ position | `jsonc-parser` | Zero deps, AST with offsets |
+| YAML w/ position | `yaml` | CST with ranges |
+| Glob | `tinyglobby` | Lightweight |
+| CLI | `commander` | Standard, predictable |
+| Color | `picocolors` | ~2 kB |
 
-Alvo: **≤ 8 dependências de runtime**. Cada dependência é superfície de ataque numa ferramenta de segurança e latência no `npx`.
+Target: **≤ 8 runtime dependencies**. Every dependency is attack surface in a security tool, and latency on `npx`.
 
 ---
 
-## 13. Estrutura de arquivos
+## 13. File layout
 
 ```
 src/
-  cli/index.ts           # parse de args, orquestra, define exit code
-  core/types.ts          # IR (§5) — sem lógica
-  core/location.ts       # offset -> line/col; construção de SourceLocation
-  core/engine.ts         # subjects x rules -> Finding[]; aplica teto de confiança
-  core/config.ts         # carrega mcpscan.config.json, merge com flags
-  core/suppress.ts       # parse de mcpscan-disable-next-line
+  cli/index.ts           # arg parsing, orchestration, sets the exit code
+  core/types.ts          # IR (§5) — no logic
+  core/location.ts       # offset -> line/col; builds SourceLocation
+  core/engine.ts         # subjects x rules -> Finding[]; applies the confidence ceiling
+  core/config.ts         # loads mcpscan.config.json, merges with flags
+  core/suppress.ts       # parses mcpscan-disable-next-line
   collect/mcp-config.ts
   collect/mcp-manifest.ts
   collect/skill-md.ts
   collect/source.ts
   collect/index.ts       # discover(root) -> ScanTarget
-  rules/index.ts         # registry (array explícito)
+  rules/index.ts         # registry (explicit array)
   rules/mcp/MCP001.ts ... rules/skill/SKILL004.ts
-  rules/shared/patterns.ts   # regex de injeção compartilhados, UM lugar só
+  rules/shared/patterns.ts   # shared injection regexes, ONE place only
   report/pretty.ts
   report/json.ts
   report/sarif.ts
   report/github.ts
 tests/
   fixtures/<RULE_ID>/{vulnerable,clean}/
-  corpus/                # manifests reais limpos, para regressão de FP
+  corpus/                # real clean manifests, for FP regression
 docs/
   rules/<RULE_ID>.md
 action.yml
@@ -408,24 +406,24 @@ action.yml
 
 ---
 
-## 14. Riscos conhecidos
+## 14. Known risks
 
-| Risco | Mitigação |
+| Risk | Mitigation |
 |---|---|
-| Falso positivo destrói confiança | §8: corpus de regressão + teto de confiança + fixture par |
-| `--connect` executa código malicioso | Opt-in, aviso explícito, nunca no default nem na Action |
-| Formato de manifest MCP evolui | Collectors isolados; regras dependem só da IR |
-| Regex de injeção vira gato-e-rato | Aceitar: o MVP pega o caso não-adversarial (os 36,82% da Snyk são majoritariamente erro, não ataque dirigido). Documentar a limitação no README em vez de fingir cobertura. |
-| Ninguém instala | Fase 2 (SARIF + Action) **antes** da regra nº 2 — distribuição antes de profundidade |
+| False positive destroys trust | §8: regression corpus + confidence ceiling + fixture pair |
+| `--connect` runs malicious code | Opt-in, explicit warning, never on by default or in the Action |
+| MCP manifest format evolves | Isolated collectors; rules depend only on the IR |
+| Injection regex turns into cat-and-mouse | Accepted: the MVP catches the non-adversarial case (Snyk's 36.82% is mostly mistakes, not targeted attacks). Document the limitation in the README instead of pretending to have coverage. |
+| Nobody installs it | Phase 2 (SARIF + Action) **before** rule #2 — distribution before depth |
 
 ---
 
-## 15. Pontos que precisam de verificação antes de codar
+## 15. Points that need verification before coding
 
-- ~~**IDs oficiais do OWASP MCP Top 10.**~~ **Resolvido em 2026-08-28:** lista verificada em <https://owasp.org/www-project-mcp-top-10/>, mapeamento completo na §7.1. Descoberta relevante: "schema poisoning" e "tool shadowing" não são categorias próprias — são sub-técnicas de `MCP03:2025`. E `MCP09:2025 Shadow MCP Servers` ficou sem regra (§7.1).
-- ~~**Nome no npm.**~~ **Resolvido em 2026-08-28:** `mcp-scan` está tomado (v2.0.6, Invariant Labs — scanner de MCP concorrente direto) e `mcp-scanner` também. Nome escolhido: **`mcpscan`** (livre). Binário `mcpscan`, diretiva `mcpscan-disable-next-line`, config `mcpscan.config.json`.
-- ~~**Formato canônico de `SKILL.md`.**~~ **Resolvido em 2026-08-28**, verificado contra 60 SKILL.md reais instalados. Achados que mudam a implementação:
-  - `name` e `description` estão em 100% delas; **`allowed-tools` não aparece em nenhuma skill de topo** — só em skills de plugin. Confirma que SKILL003 deve retornar `[]` quando o campo está ausente: ausência não é declaração falsa.
-  - O formato real de `allowed-tools` é **lista YAML**, não string com vírgulas. `toArray()` aceita ambos.
-  - As entradas são **escopadas**: `Bash(git *)`, `Agent(nome)`, `Workflow(x)`. O `split('(')[0]` do SKILL003 normaliza. Consequência aceita: um skill que declara `Bash(ls *)` e no corpo roda `curl` **não** é detectado, porque `Bash` consta como declarado. Sub-detecção deliberada — errar para o lado do falso negativo, não do falso positivo.
-  - Existem também `disallowed-tools`, `user-invocable` e `disable-model-invocation`. Nenhum afeta o MVP.
+- ~~**Official OWASP MCP Top 10 IDs.**~~ **Resolved on 2026-08-28:** list verified at <https://owasp.org/www-project-mcp-top-10/>, full mapping in §7.1. Relevant finding: "schema poisoning" and "tool shadowing" are not their own categories — they're sub-techniques of `MCP03:2025`. And `MCP09:2025 Shadow MCP Servers` ended up without a rule (§7.1).
+- ~~**npm package name.**~~ **Resolved on 2026-08-28:** `mcp-scan` is taken (v2.0.6, Invariant Labs — a direct competing MCP scanner) and so is `mcp-scanner`. Chosen name: **`mcpscan`** (available). Binary `mcpscan`, directive `mcpscan-disable-next-line`, config `mcpscan.config.json`.
+- ~~**Canonical `SKILL.md` format.**~~ **Resolved on 2026-08-28**, verified against 60 real installed SKILL.md files. Findings that change the implementation:
+  - `name` and `description` are present in 100% of them; **`allowed-tools` doesn't appear in any top-level skill** — only in plugin skills. Confirms SKILL003 should return `[]` when the field is absent: absence isn't a false declaration.
+  - The real format of `allowed-tools` is a **YAML list**, not a comma-separated string. `toArray()` accepts both.
+  - Entries are **scoped**: `Bash(git *)`, `Agent(name)`, `Workflow(x)`. SKILL003's `split('(')[0]` normalizes this. Accepted consequence: a skill that declares `Bash(ls *)` and runs `curl` in the body is **not** detected, because `Bash` is on record as declared. Deliberate under-detection — err toward false negative, not false positive.
+  - There are also `disallowed-tools`, `user-invocable`, and `disable-model-invocation`. None affect the MVP.

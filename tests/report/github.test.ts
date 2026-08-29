@@ -9,14 +9,14 @@ const f: Finding = {
 };
 
 describe('formatGithub', () => {
-  it('emite workflow command com file/line/col', () => {
+  it('emits a workflow command with file/line/col', () => {
     expect(formatGithub([f])).toContain('::error file=src/t.json,line=14,col=32');
   });
-  it('escapa quebras de linha na mensagem', () => {
+  it('escapes line breaks in the message', () => {
     expect(formatGithub([f])).toContain('%0A');
     expect(formatGithub([f]).split('\n')).toHaveLength(1);
   });
-  it('mapeia severidade para comando correto (todas as cinco)', () => {
+  it('maps severity to the correct command (all five)', () => {
     const sevs: [Severity, string][] = [
       ['critical', 'error'], ['high', 'error'], ['medium', 'warning'],
       ['low', 'notice'], ['info', 'notice'],
@@ -26,22 +26,22 @@ describe('formatGithub', () => {
       expect(formatGithub([finding])).toContain(`::${cmd} file=`);
     }
   });
-  it('escapa % literal como %25', () => {
+  it('escapes a literal % as %25', () => {
     const finding: Finding = { ...f, message: '100% seguro', location: { ...f.location } };
     expect(formatGithub([finding])).toContain('100%25');
   });
-  it('escapa carriage return como %0D', () => {
+  it('escapes carriage return as %0D', () => {
     const finding: Finding = { ...f, message: 'linha\rquebrada' };
     expect(formatGithub([finding])).toContain('%0D');
   });
-  it('lista vazia produz string vazia', () => {
+  it('an empty list produces an empty string', () => {
     expect(formatGithub([])).toBe('');
   });
-  it('múltiplos findings produzem uma linha cada', () => {
+  it('multiple findings produce one line each', () => {
     const out = formatGithub([f, { ...f, ruleId: 'MCP003' }]);
     expect(out.split('\n')).toHaveLength(2);
   });
-  it('normaliza backslash do file para forward slash', () => {
+  it('normalizes backslash in the file to forward slash', () => {
     const finding: Finding = { ...f, location: { ...f.location, file: 'src\\t.json' } };
     expect(formatGithub([finding])).toContain('file=src/t.json,');
   });

@@ -1,16 +1,17 @@
 import type { PartialFinding, Rule, ToolDefinition } from '../../core/types.js';
 
 /**
- * Política por classe de caractere — ver docs/SPEC.md §7.2 e docs/rules/MCP002.md.
+ * Per-character-class policy — see docs/SPEC.md §7.2 and docs/rules/MCP002.md.
  *
- * "Caractere invisível" não é uma categoria binária: todo emoji ZWJ usa U+200D,
- * ZWNJ é ortografia obrigatória em persa/devanágari, e isolates bidi balanceados
- * são o jeito recomendado (UAX #9) de embutir um identificador latino em texto RTL.
- * Esta regra sinaliza por classe + contexto, não por "está na lista de invisíveis".
+ * "Invisible character" is not a binary category: every emoji ZWJ sequence uses
+ * U+200D, ZWNJ is required spelling in Persian/Devanagari, and balanced bidi
+ * isolates are the recommended way (UAX #9) to embed a Latin identifier in RTL
+ * text. This rule flags by class + context, not by "is on the invisible list".
  *
- * Todo codepoint abaixo é referenciado numericamente (0x...) — nunca colado como
- * caractere literal no fonte. Um invisível colado aqui é indistinguível de um erro
- * de digitação e já quebrou esta regra antes (ver git blame).
+ * Every codepoint below is referenced numerically (0x...) — never pasted as a
+ * literal character in the source. A literal invisible character pasted here is
+ * indistinguishable from a typo and has already broken this rule once before
+ * (see git blame).
  */
 
 const NAMES: Record<string, string> = {
@@ -38,27 +39,27 @@ function describeCp(cp: number): string {
   let label = NAMES[hex];
   if (!label) {
     if (cp >= 0xe0000 && cp <= 0xe007f) label = 'tag character';
-    else if (isVariationSelector(cp)) label = 'seletor de variação';
-    else label = 'caractere invisível';
+    else if (isVariationSelector(cp)) label = 'variation selector';
+    else label = 'invisible character';
   }
   return `U+${hex.toUpperCase()} (${label})`;
 }
 
-/** ASCII/Latin ou dígito — a classe em que ZWJ/ZWNJ nunca tem papel legítimo de junção. */
+/** ASCII/Latin or digit — the class in which ZWJ/ZWNJ never has a legitimate joining role. */
 const LATIN_OR_DIGIT = /^[\p{Script=Latin}\p{Nd}]$/u;
 const isLatinOrDigit = (ch: string | undefined): boolean => ch !== undefined && LATIN_OR_DIGIT.test(ch);
 
 /**
- * Marca, por índice de codepoint, quais caracteres de `codepoints` devem ser
- * sinalizados — aplicando a política "sempre / só em contexto / nunca" do §7.2.
+ * Marks, by codepoint index, which characters in `codepoints` should be
+ * flagged — applying the "always / context-only / never" policy from §7.2.
  */
 function classify(codepoints: string[]): boolean[] {
   const n = codepoints.length;
   const cps = codepoints.map((c) => c.codePointAt(0)!);
   const flagged = new Array<boolean>(n).fill(false);
 
-  // Sempre: zero-width space, word joiner, BOM; overrides bidi (mesmo balanceados,
-  // são o vetor do Trojan Source); tag characters (U+E0000-E007F).
+  // Always: zero-width space, word joiner, BOM; bidi overrides (even balanced
+  // ones, since they're the Trojan Source vector); tag characters (U+E0000-E007F).
   for (let i = 0; i < n; i++) {
     const c = cps[i]!;
     if (c === 0x200b || c === 0x2060 || c === 0xfeff) flagged[i] = true;
@@ -66,8 +67,8 @@ function classify(codepoints: string[]): boolean[] {
     else if (c >= 0xe0000 && c <= 0xe007f) flagged[i] = true;
   }
 
-  // Sempre: corrida de 3+ seletores de variação consecutivos. Um único U+FE0F é
-  // apresentação de emoji e não dispara.
+  // Always: a run of 3+ consecutive variation selectors. A single U+FE0F is
+  // emoji presentation and does not flag.
   let runStart = -1;
   for (let i = 0; i <= n; i++) {
     const isVs = i < n && isVariationSelector(cps[i]!);
@@ -79,9 +80,10 @@ function classify(codepoints: string[]): boolean[] {
     }
   }
 
-  // Contexto: ZWJ/ZWNJ só quando os DOIS vizinhos são ASCII/latinos ou dígitos —
-  // entre emoji, ou entre letras árabes/índicas, é uso normal. Nas pontas da string
-  // (sem vizinho de um lado) não há papel de junção possível: dispara também.
+  // Context: ZWJ/ZWNJ only when BOTH neighbors are ASCII/Latin or digits —
+  // between emoji, or between Arabic/Indic letters, it's normal usage. At the
+  // ends of the string (missing a neighbor on one side) there's no possible
+  // joining role: flags too.
   for (let i = 0; i < n; i++) {
     const c = cps[i]!;
     if (c !== 0x200c && c !== 0x200d) continue;
@@ -91,36 +93,36 @@ function classify(codepoints: string[]): boolean[] {
     else if (isLatinOrDigit(codepoints[i - 1]) && isLatinOrDigit(codepoints[i + 1])) flagged[i] = true;
   }
 
-  // Contexto: embeddings bidi (LRE/RLE...PDF) só quando desbalanceados. Pilha única
-  // para embeddings E overrides porque PDF fecha os dois em Unicode real — assim um
-  // override balanceado (já sempre sinalizado acima) não faz um embedding vizinho
-  // parecer desbalanceado. Só entrada do tipo 'embedding' deixada aberta no fim (ou
-  // PDF sem nada pra fechar) gera flag extra aqui.
+  // Context: bidi embeddings (LRE/RLE...PDF) only when unbalanced. Single stack
+  // for embeddings AND overrides because PDF closes both in real Unicode — so a
+  // balanced override (already always-flagged above) doesn't make a neighboring
+  // embedding look unbalanced. Only an 'embedding' entry left open at the end (or
+  // a PDF with nothing to close) produces an extra flag here.
   const stack: Array<{ i: number; type: 'embedding' | 'override' }> = [];
   for (let i = 0; i < n; i++) {
     const c = cps[i]!;
     if (c === 0x202a || c === 0x202b) stack.push({ i, type: 'embedding' });
     else if (c === 0x202d || c === 0x202e) stack.push({ i, type: 'override' });
     else if (c === 0x202c) {
-      if (stack.length === 0) flagged[i] = true; // PDF sem abertura
-      else stack.pop(); // fecha o topo, seja embedding ou override — casado
+      if (stack.length === 0) flagged[i] = true; // PDF with nothing open
+      else stack.pop(); // closes the top, embedding or override — matched
     }
   }
   for (const entry of stack) if (entry.type === 'embedding') flagged[entry.i] = true;
 
-  // Contexto: isolates bidi (LRI/RLI/FSI...PDI) só quando desbalanceados.
+  // Context: bidi isolates (LRI/RLI/FSI...PDI) only when unbalanced.
   const isolateStack: number[] = [];
   for (let i = 0; i < n; i++) {
     const c = cps[i]!;
     if (c === 0x2066 || c === 0x2067 || c === 0x2068) isolateStack.push(i);
     else if (c === 0x2069) {
-      if (isolateStack.length === 0) flagged[i] = true; // PDI sem abertura
+      if (isolateStack.length === 0) flagged[i] = true; // PDI with nothing open
       else isolateStack.pop();
     }
   }
   for (const idx of isolateStack) flagged[idx] = true;
 
-  // Nunca: U+200E (LRM) e U+200F (RLM) não são tocados por nenhum ramo acima.
+  // Never: U+200E (LRM) and U+200F (RLM) are untouched by any branch above.
 
   return flagged;
 }
@@ -128,10 +130,10 @@ function classify(codepoints: string[]): boolean[] {
 const EVIDENCE_RADIUS = 60;
 
 /**
- * Janela ao redor do primeiro hit — não um truncamento cego a partir da posição 0,
- * que num payload de 400 caracteres com o hit no fim não mostra nenhum sinal.
- * Fatiada por codepoint (Array.from), nunca por code unit (`.slice`), para nunca
- * partir um par surrogate ao meio.
+ * Window around the first hit — not a blind truncation from position 0, which
+ * would show no signal at all for a 400-character payload with the hit at the end.
+ * Sliced by codepoint (Array.from), never by code unit (`.slice`), so a surrogate
+ * pair is never split in half.
  */
 function buildEvidence(codepoints: string[], flagged: boolean[]): string {
   const n = codepoints.length;
@@ -153,7 +155,7 @@ function textFields(tool: ToolDefinition): Array<['name' | 'description', string
 
 export const MCP002 = {
   id: 'MCP002',
-  title: 'Caractere Unicode invisível em definição de tool',
+  title: 'Invisible Unicode character in tool definition',
   severity: 'critical',
   confidence: 'high',
   owasp: 'MCP03:2025 – Tool Poisoning',
@@ -180,11 +182,11 @@ export const MCP002 = {
       findings.push({
         location: tool.loc(`${tool.origin.jsonPath}.${field}`),
         message:
-          `A tool "${tool.name}" tem ${hitCount} caractere(s) invisível(is) em ` +
+          `Tool "${tool.name}" has ${hitCount} invisible character(s) in ` +
           `\`${field}\`: ${descriptions.join(', ')}.`,
         remediation:
-          'Remova os caracteres invisíveis. Esse texto é lido pelo modelo e não aparece para o ' +
-          'usuário — conteúdo invisível ali é instrução oculta, não formatação.',
+          'Remove the invisible characters. This text is read by the model and never shown to the ' +
+          'user — invisible content here is a hidden instruction, not formatting.',
         evidence: buildEvidence(codepoints, flagged),
       });
     }
