@@ -3,13 +3,18 @@ import { Command } from 'commander';
 import { writeFileSync } from 'node:fs';
 import { scan } from '../scan.js';
 import { formatPretty } from '../report/pretty.js';
+import { formatSarif } from '../report/sarif.js';
 import { validateFormat } from '../report/format.js';
+import { RULES } from '../rules/index.js';
 import type { Severity } from '../core/types.js';
+// Lido em tempo de build pelo esbuild/tsup (JSON import é resolvido estaticamente
+// pelo caminho do arquivo-fonte), não em tempo de execução — sobrevive ao bundling.
+import pkg from '../../package.json' with { type: 'json' };
 
 const program = new Command()
   .name('mcpscan')
   .argument('[path]', 'diretório ou arquivo para analisar', '.')
-  .option('--format <fmt>', 'pretty | json (sarif e github: em breve)')
+  .option('--format <fmt>', 'pretty | json | sarif (github: em breve)')
   .option('--output <file>', 'escreve no arquivo em vez do stdout')
   .option('--fail-on <sev>', 'critical | high | medium | low | none', 'high')
   .option('--rules <ids>', 'roda só estas regras (separadas por vírgula)')
@@ -45,6 +50,8 @@ if (formatError) {
         stats: result.stats,
         ...(result.error !== undefined ? { error: result.error } : {}),
       })
+    : format === 'sarif'
+    ? formatSarif(result.findings, RULES, pkg.version)
     : JSON.stringify({
         findings: result.findings,
         stats: result.stats,
