@@ -58,12 +58,24 @@ export interface SourceFile {
   language: 'ts' | 'js' | 'py' | 'other';
 }
 
+/**
+ * A file whose *name* declared what it is -- SKILL.md, .mcp.json -- but which no
+ * collector could parse. Distinct from a .json that simply is not a manifest:
+ * there, silence is correct, because nothing claimed it was one.
+ */
+export interface UnreadableFile {
+  file: string;
+  reason: string;
+}
+
 export interface ScanTarget {
   root: string;
   servers: ServerDefinition[];
   tools: ToolDefinition[];   // all tools, from any origin
   skills: SkillDefinition[];
   sourceFiles: SourceFile[];
+  /** Name-declared files that could not be parsed. Never silently dropped. */
+  unreadable: UnreadableFile[];
   /** Files read successfully — not "files that produced tools". */
   filesExamined: number;
 }

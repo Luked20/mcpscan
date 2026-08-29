@@ -551,8 +551,11 @@ One defect reappeared four times in this codebase, once per layer added. Each ti
 | Rule engine | A rule that threw became an `info` finding; CI stayed green | silent |
 | Rule selection | `--rules MCP999` disabled the scanner with no signal | silent |
 | **SARIF artifact** | A failed scan uploaded an empty document, **closing previously-open GitHub alerts** | **destructive** |
+| Collectors | A `SKILL.md` or `.mcp.json` that would not parse was dropped; a valid one beside it reported "No problems found" | silent |
 
 A new layer is born unable to tell *"I looked and it is clean"* from *"I could not look."* It has to be taught, every time.
+
+The fifth entry arrived after this section was written, which is the point: the collectors were added, they had their own tests, those tests passed, and the invariant still did not come along. Note the distinction the fix turns on — a `.json` that merely is not a manifest stays silent, because nothing claimed it was one; a file whose *name* declares what it is (`SKILL.md`, `.mcp.json`) and will not parse is reported. The question is not "did this fail" but "did something claim to be scannable and then not get scanned."
 
 **Therefore, a mandatory review question for every layer, format, or output added from here on:**
 

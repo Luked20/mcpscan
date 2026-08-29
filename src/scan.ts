@@ -23,6 +23,8 @@ export interface ScanStats {
   /** MCP servers declared in client config files. */
   servers: number;
   skills: number;
+  /** Name-declared files no collector could parse. */
+  unreadable: number;
 }
 
 export interface ScanResult {
@@ -32,7 +34,7 @@ export interface ScanResult {
   error?: string;
 }
 
-const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0 });
+const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, unreadable: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
@@ -82,6 +84,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       tools: target.tools.length,
       servers: target.servers.length,
       skills: target.skills.length,
+      unreadable: target.unreadable.length,
     };
 
     if (!hasSubjects(target)) {
@@ -101,6 +104,14 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
         .map((f) => `${f.ruleId} (${f.subjectCount} subjects): ${f.message}`)
         .join('; ');
       return fail(`rule(s) failed during the scan: ${detail}`, findings, stats);
+    }
+
+    // A file whose name declared what it is but which would not parse was not
+    // scanned. Reporting green for it would be a lie, so this is exit 2 like any
+    // other "could not look" -- see SPEC 9 and 16.6.
+    if (target.unreadable.length > 0) {
+      const detail = target.unreadable.map((u) => `${u.file} (${u.reason})`).join('; ');
+      return fail(`could not parse ${target.unreadable.length} declared file(s): ${detail}`, findings, stats);
     }
 
     const fails = failOn !== 'none' && findings.some((f) => atLeast(f.severity, failOn));

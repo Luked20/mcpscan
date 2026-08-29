@@ -4,7 +4,9 @@ import { basename, dirname, relative, resolve } from 'node:path';
 import { collectManifest } from './mcp-manifest.js';
 import { collectMcpConfig } from './mcp-config.js';
 import { collectSkill } from './skill-md.js';
-import type { ScanTarget, ServerDefinition, SkillDefinition, ToolDefinition } from '../core/types.js';
+import type {
+  ScanTarget, ServerDefinition, SkillDefinition, ToolDefinition, UnreadableFile,
+} from '../core/types.js';
 
 const IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'];
 const MAX_BYTES = 2_000_000;
@@ -32,6 +34,7 @@ export async function discover(root: string): Promise<ScanTarget> {
   const tools: ToolDefinition[] = [];
   const servers: ServerDefinition[] = [];
   const skills: SkillDefinition[] = [];
+  const unreadable: UnreadableFile[] = [];
   let filesExamined = 0;
 
   for (const file of files) {
@@ -52,6 +55,9 @@ export async function discover(root: string): Promise<ScanTarget> {
     if (basename(file) === 'SKILL.md') {
       const skill = collectSkill(rel, text);
       if (skill) skills.push(skill);
+      // The filename declared this is a skill. If it will not parse, the scanner
+      // cannot vouch for it, and saying nothing would read as "scanned, clean".
+      else unreadable.push({ file: rel, reason: 'SKILL.md frontmatter is missing or is not valid YAML' });
       continue;
     }
 
@@ -59,9 +65,12 @@ export async function discover(root: string): Promise<ScanTarget> {
     // These files are already being read for the manifest pass above; this is
     // an additional collector pass over the same text, not a second file read.
     if (CONFIG_BASENAMES.has(basename(file))) {
-      servers.push(...collectMcpConfig(rel, text));
+      const found = collectMcpConfig(rel, text);
+      if (found.length > 0) servers.push(...found);
+      // Same reasoning as SKILL.md: the name declared it is an MCP client config.
+      else unreadable.push({ file: rel, reason: 'no mcpServers/servers block, or the JSON is malformed' });
     }
   }
 
-  return { root: base, servers, tools, skills, sourceFiles: [], filesExamined };
+  return { root: base, servers, tools, skills, sourceFiles: [], unreadable, filesExamined };
 }
