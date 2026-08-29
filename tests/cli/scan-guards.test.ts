@@ -50,6 +50,14 @@ describe('nothing to scan', () => {
     const r = await scan({ path: VULN, failOn: 'high' });
     expect(r.stats).toEqual({ filesExamined: 1, filesWithTools: 1, tools: 1, servers: 0, skills: 0 });
   });
+
+  it('a directory holding only a SKILL.md is a real subject, not exit 2', async () => {
+    const r = await scan({ path: 'tests/fixtures/skill-md/basic', failOn: 'high' });
+    expect(r.error).toBeUndefined();
+    expect(r.exitCode).not.toBe(2);
+    expect(r.stats.skills).toBe(1);
+    expect(r.stats.tools).toBe(0);
+  });
 });
 
 describe('invalid --fail-on', () => {

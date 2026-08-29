@@ -3,7 +3,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, dirname, relative, resolve } from 'node:path';
 import { collectManifest } from './mcp-manifest.js';
 import { collectMcpConfig } from './mcp-config.js';
-import type { ScanTarget, ServerDefinition, ToolDefinition } from '../core/types.js';
+import { collectSkill } from './skill-md.js';
+import type { ScanTarget, ServerDefinition, SkillDefinition, ToolDefinition } from '../core/types.js';
 
 const IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'];
 const MAX_BYTES = 2_000_000;
@@ -25,11 +26,12 @@ export async function discover(root: string): Promise<ScanTarget> {
   // so the relative path is the basename).
   const base = isDir ? abs : dirname(abs);
   const files = isDir
-    ? await glob(['**/*.json'], { cwd: abs, ignore: IGNORE, dot: true, absolute: true })
+    ? await glob(['**/*.json', '**/SKILL.md'], { cwd: abs, ignore: IGNORE, dot: true, absolute: true })
     : [abs];
 
   const tools: ToolDefinition[] = [];
   const servers: ServerDefinition[] = [];
+  const skills: SkillDefinition[] = [];
   let filesExamined = 0;
 
   for (const file of files) {
@@ -46,6 +48,13 @@ export async function discover(root: string): Promise<ScanTarget> {
       continue;
     }
     filesExamined += 1;
+
+    if (basename(file) === 'SKILL.md') {
+      const skill = collectSkill(rel, text);
+      if (skill) skills.push(skill);
+      continue;
+    }
+
     tools.push(...collectManifest(rel, text));
     // These files are already being read for the manifest pass above; this is
     // an additional collector pass over the same text, not a second file read.
@@ -54,5 +63,5 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
   }
 
-  return { root: base, servers, tools, skills: [], sourceFiles: [], filesExamined };
+  return { root: base, servers, tools, skills, sourceFiles: [], filesExamined };
 }

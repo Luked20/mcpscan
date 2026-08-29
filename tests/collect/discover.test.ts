@@ -26,4 +26,17 @@ describe('discover', () => {
     const t = await discover('tests/fixtures/MCP002/vulnerable');
     expect(t.filesExamined).toBe(1);
   });
+
+  it('finds skills via SKILL.md, populating ScanTarget.skills', async () => {
+    const t = await discover('tests/fixtures/skill-md/basic');
+    expect(t.skills).toHaveLength(1);
+    expect(t.skills[0]!.name).toBe('git-commit-helper');
+    expect(t.tools).toEqual([]);
+  });
+
+  it('scans a SKILL.md file passed directly', async () => {
+    const t = await discover('tests/fixtures/skill-md/basic/SKILL.md');
+    expect(t.skills).toHaveLength(1);
+    expect(t.skills[0]!.origin.file).toBe('SKILL.md');
+  });
 });
