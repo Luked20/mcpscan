@@ -88,16 +88,18 @@ existing alerts.
 | `MCP003` | Model-directed instruction inside inputSchema | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP003.md](docs/rules/MCP003.md) |
 | `MCP004` | Unconstrained path parameter in a file tool | high | [MCP02:2025 – Privilege Escalation via Scope Creep](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP004.md](docs/rules/MCP004.md) |
 | `MCP005` | Unconstrained command parameter | high | [MCP05:2025 – Command Injection & Execution](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP005.md](docs/rules/MCP005.md) |
+| `MCP006` | Tool shadows or directs another tool | high | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP006.md](docs/rules/MCP006.md) |
 | `MCP007` | Unpinned MCP server provenance | medium | [MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP007.md](docs/rules/MCP007.md) |
+| `MCP008` | Dangerous execution sink in server source | high | [MCP05:2025 – Command Injection & Execution](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP008.md](docs/rules/MCP008.md) |
 | `MCP009` | Credential hardcoded in MCP server configuration | high | [MCP01:2025 – Token Mismanagement & Secret Exposure](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP009.md](docs/rules/MCP009.md) |
 | `SKILL001` | Hidden instruction in skill body | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL001.md](docs/rules/SKILL001.md) |
 | `SKILL002` | Model-directed instruction in skill description | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL002.md](docs/rules/SKILL002.md) |
 | `SKILL003` | Skill uses a capability it does not declare | high | [MCP02:2025 – Privilege Escalation via Scope Creep](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL003.md](docs/rules/SKILL003.md) |
 | `SKILL004` | Skill downloads and executes remote code | high | [MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL004.md](docs/rules/SKILL004.md) |
 
-Only these eleven rules are implemented so far. More are planned — see
-[`docs/SPEC.md`](docs/SPEC.md) §7 for the full catalog (tool shadowing,
-dangerous sinks in source, and more).
+Only these thirteen rules are implemented so far — the full MVP catalog from
+`docs/SPEC.md` §7. More may be added later; see that section for the
+rationale behind the ones that already exist.
 
 ## Options
 
@@ -133,13 +135,16 @@ Read this before you trust a clean scan.
   They are **not robust against an adaptive attacker who knows the rules** —
   a pattern matcher is not a substitute for review on anything you didn't
   write yourself.
-- **Only eleven rules are implemented so far** (`MCP001`–`MCP005`, `MCP007`, `MCP009`, `SKILL001`–
-  `SKILL004`). The rest of the OWASP MCP Top 10 categories in `docs/SPEC.md`
-  §7 are not covered yet. A clean scan today means "no invisible Unicode, no
-  model-directed instruction found in the tool description, input schema, or
-  skill frontmatter/body, no unconstrained path/command parameter in a
-  file or execution tool, no undeclared capability used in a skill body, and
-  no remote-code-fetch pattern in a skill body," not "this server or skill is safe."
+- **Thirteen rules are implemented** (`MCP001`–`MCP009`, `SKILL001`–
+  `SKILL004`) — the full MVP catalog in `docs/SPEC.md` §7. A clean scan
+  today means "no invisible Unicode, no model-directed instruction found in
+  the tool description, input schema, or skill frontmatter/body, no
+  unconstrained path/command parameter in a file or execution tool, no tool
+  name collision or redirecting description across servers, no unpinned or
+  plaintext server provenance, no dangerous execution sink pattern in server
+  source, no hardcoded credential in an MCP config, no undeclared capability
+  used in a skill body, and no remote-code-fetch pattern in a skill body,"
+  not "this server or skill is safe."
 - **Static analysis only.** `mcpscan` never starts your MCP server or calls
   `tools/list`. Live introspection (`--connect`) is deliberately left out of
   the MVP because it would mean executing untrusted code to scan it.

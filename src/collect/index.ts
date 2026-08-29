@@ -1,11 +1,12 @@
 import { glob } from 'tinyglobby';
 import { readFile, stat } from 'node:fs/promises';
-import { basename, dirname, relative, resolve } from 'node:path';
+import { basename, dirname, extname, relative, resolve } from 'node:path';
 import { collectManifest } from './mcp-manifest.js';
 import { collectMcpConfig } from './mcp-config.js';
 import { collectSkill } from './skill-md.js';
+import { collectSource } from './source.js';
 import type {
-  ScanTarget, ServerDefinition, SkillDefinition, ToolDefinition, UnreadableFile,
+  ScanTarget, ServerDefinition, SkillDefinition, SourceFile, ToolDefinition, UnreadableFile,
 } from '../core/types.js';
 
 const IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'];
@@ -13,6 +14,9 @@ const MAX_BYTES = 2_000_000;
 
 /** Basenames recognized as MCP client config files, in addition to the manifest scan. */
 const CONFIG_BASENAMES = new Set(['.mcp.json', 'mcp.json', 'claude_desktop_config.json']);
+
+/** Extensions routed to the source collector (MCP008) rather than the manifest collector. */
+const SOURCE_EXTENSIONS = new Set(['.ts', '.js', '.mjs', '.cjs', '.mts', '.cts']);
 
 /**
  * `root` can be a directory or a file. The CLI advertises both
@@ -28,12 +32,16 @@ export async function discover(root: string): Promise<ScanTarget> {
   // so the relative path is the basename).
   const base = isDir ? abs : dirname(abs);
   const files = isDir
-    ? await glob(['**/*.json', '**/SKILL.md'], { cwd: abs, ignore: IGNORE, dot: true, absolute: true })
+    ? await glob(
+        ['**/*.json', '**/SKILL.md', '**/*.{ts,js,mjs,cjs,mts,cts}'],
+        { cwd: abs, ignore: IGNORE, dot: true, absolute: true },
+      )
     : [abs];
 
   const tools: ToolDefinition[] = [];
   const servers: ServerDefinition[] = [];
   const skills: SkillDefinition[] = [];
+  const sourceFiles: SourceFile[] = [];
   const unreadable: UnreadableFile[] = [];
   let filesExamined = 0;
 
@@ -61,6 +69,13 @@ export async function discover(root: string): Promise<ScanTarget> {
       continue;
     }
 
+    if (SOURCE_EXTENSIONS.has(extname(file).toLowerCase())) {
+      // Source text has no structure a collector could reject -- nothing here
+      // to fail closed on, so there's no unreadable case (see source.ts).
+      sourceFiles.push(collectSource(rel, text));
+      continue;
+    }
+
     tools.push(...collectManifest(rel, text));
     // These files are already being read for the manifest pass above; this is
     // an additional collector pass over the same text, not a second file read.
@@ -72,5 +87,5 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
   }
 
-  return { root: base, servers, tools, skills, sourceFiles: [], unreadable, filesExamined };
+  return { root: base, servers, tools, skills, sourceFiles, unreadable, filesExamined };
 }

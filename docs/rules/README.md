@@ -12,13 +12,15 @@ file.
 | [MCP003](MCP003.md) | Model-directed instruction inside inputSchema | critical | MCP03:2025 – Tool Poisoning |
 | [MCP004](MCP004.md) | Unconstrained path parameter in a file tool | high | MCP02:2025 – Privilege Escalation via Scope Creep |
 | [MCP005](MCP005.md) | Unconstrained command parameter | high | MCP05:2025 – Command Injection & Execution |
+| [MCP006](MCP006.md) | Tool shadows or directs another tool | high | MCP03:2025 – Tool Poisoning |
 | [MCP007](MCP007.md) | Unpinned MCP server provenance | medium | MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering |
+| [MCP008](MCP008.md) | Dangerous execution sink in server source | high | MCP05:2025 – Command Injection & Execution |
 | [MCP009](MCP009.md) | Credential hardcoded in MCP server configuration | high | MCP01:2025 – Token Mismanagement & Secret Exposure |
 | [SKILL001](SKILL001.md) | Hidden instruction in skill body | critical | MCP10:2025 – Context Injection & Over-Sharing |
 | [SKILL002](SKILL002.md) | Model-directed instruction in skill description | critical | MCP10:2025 – Context Injection & Over-Sharing |
 | [SKILL003](SKILL003.md) | Skill uses a capability it does not declare | high | MCP02:2025 – Privilege Escalation via Scope Creep |
 | [SKILL004](SKILL004.md) | Skill downloads and executes remote code | high | MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering |
 
-More rules are planned — see [`docs/SPEC.md`](../SPEC.md) §7 for the full
-catalog and what's still to come. The top-level [README](../../README.md)
-has the quick-start and CI usage.
+This is the full MVP rule catalog — see [`docs/SPEC.md`](../SPEC.md) §7 for
+the rationale behind each one. The top-level [README](../../README.md) has
+the quick-start and CI usage.

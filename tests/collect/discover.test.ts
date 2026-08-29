@@ -39,4 +39,24 @@ describe('discover', () => {
     expect(t.skills).toHaveLength(1);
     expect(t.skills[0]!.origin.file).toBe('SKILL.md');
   });
+
+  it('finds .ts source files, populating ScanTarget.sourceFiles', async () => {
+    const t = await discover('tests/fixtures/MCP008/vulnerable');
+    expect(t.sourceFiles).toHaveLength(1);
+    expect(t.sourceFiles[0]!.file).toBe('server.ts');
+    expect(t.sourceFiles[0]!.language).toBe('ts');
+  });
+
+  it('counts a source file toward filesExamined, not toward tools', async () => {
+    const t = await discover('tests/fixtures/MCP008/vulnerable');
+    expect(t.filesExamined).toBe(1);
+    expect(t.tools).toEqual([]);
+  });
+
+  it('does not run the manifest collector against a .ts file', async () => {
+    // A .ts file will never be valid JSON, so collectManifest would already
+    // return [] for it; this asserts the routing itself, not just the outcome.
+    const t = await discover('tests/fixtures/MCP008/vulnerable');
+    expect(t.unreadable).toEqual([]);
+  });
 });
