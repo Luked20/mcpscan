@@ -497,3 +497,24 @@ Before the first publish, additionally:
 ### 16.5 What is deliberately NOT contract
 
 Free to change at any time, and stated here so nobody treats them as stable: the exact wording of `message` and `remediation` text, the `pretty` output layout, the ordering of findings beyond the documented sort keys, internal module structure, and the IR types in §5. Users should key on `ruleId` and `severity`, never on message text — and the docs should say so.
+
+### 16.6 The invariant every new layer must re-learn
+
+One defect reappeared four times in this codebase, once per layer added. Each time it looked like a new bug. It was the same invariant failing to propagate into a new piece.
+
+| Layer | How it expressed itself | Severity |
+|---|---|---|
+| `scan()` | A file passed as the argument scanned nothing and exited 0 | silent |
+| Rule engine | A rule that threw became an `info` finding; CI stayed green | silent |
+| Rule selection | `--rules MCP999` disabled the scanner with no signal | silent |
+| **SARIF artifact** | A failed scan uploaded an empty document, **closing previously-open GitHub alerts** | **destructive** |
+
+A new layer is born unable to tell *"I looked and it is clean"* from *"I could not look."* It has to be taught, every time.
+
+**Therefore, a mandatory review question for every layer, format, or output added from here on:**
+
+> Can this layer express "I could not look", or does it only know how to say "nothing found"?
+
+Ask it of every new reporter, every new collector, every new transport, every new artifact that leaves the machine. A local test does not catch this, because each layer's own tests are written by someone who is thinking about that layer's happy path.
+
+Note the severity ordering the table reveals, which is the right one to reason with: **destructive beats silent beats noisy.** The first three defects merely failed to report. The fourth deleted data that already existed in someone else's repository. A tool that erases prior findings is worse than a tool that crashes, because a crash is visible and an erasure looks like progress.
