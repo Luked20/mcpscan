@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { SUPPRESSION_DIAGNOSTIC } from '../core/suppress.js';
 import type { Finding, Rule, Severity } from '../core/types.js';
 
 const LEVEL: Record<Severity, 'error' | 'warning' | 'note'> = {
@@ -50,7 +51,11 @@ export function formatSarif(
           name: 'mcpscan',
           version,
           informationUri: 'https://github.com/luked20/mcpscan',
-          rules: rules.map((r) => ({
+          // Every ruleId a result can carry needs a descriptor here, or the
+          // document references a rule it never declares. MCPSCAN001 is emitted
+          // outside the rule engine (see core/suppress.ts), so it is appended
+          // rather than coming from `rules`.
+          rules: [...rules, SUPPRESSION_DIAGNOSTIC].map((r) => ({
             id: r.id,
             // SARIF requires name != id when both are present (SARIF1001): id is the
             // stable, opaque identifier, name is the human-readable label.

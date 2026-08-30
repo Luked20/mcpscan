@@ -32,11 +32,15 @@ function findingLines(findings: Finding[], c: Paint): string[] {
 
 export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   const c = (fn: (s: string) => string, s: string) => (opts.color ? fn(s) : s);
-  const { filesExamined, filesWithTools, tools, servers, skills, unreadable } = opts.stats;
+  const { filesExamined, filesWithTools, tools, servers, skills, unreadable, suppressed } = opts.stats;
   const lines: string[] = [
     `mcpscan · ${filesExamined} file(s) scanned · ${filesWithTools} with tools · ` +
     `${tools} tool(s) · ${servers} server(s) · ${skills} skill(s)` +
-    (unreadable > 0 ? ` · ${unreadable} unreadable` : ''),
+    (unreadable > 0 ? ` · ${unreadable} unreadable` : '') +
+    // Suppressed findings are dropped from the report, so the only place a
+    // reader can learn they existed is this counter. A silent drop would make
+    // a heavily suppressed scan indistinguishable from a clean one.
+    (suppressed > 0 ? ` · ${suppressed} suppressed` : ''),
     '',
   ];
 

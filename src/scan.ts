@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs';
 import { discover } from './collect/index.js';
-import { runRules } from './core/engine.js';
+import { runRules, sortFindings } from './core/engine.js';
+import { applySuppressions } from './core/suppress.js';
 import { RULES } from './rules/index.js';
 import { atLeast, isFailOn, FAIL_ON_VALUES } from './core/severity.js';
 import type { Finding, Rule, ScanTarget, Severity } from './core/types.js';
@@ -25,6 +26,8 @@ export interface ScanStats {
   skills: number;
   /** Name-declared files no collector could parse. */
   unreadable: number;
+  /** Findings dropped by a well-formed suppression comment. Reported, never silent. */
+  suppressed: number;
 }
 
 export interface ScanResult {
@@ -34,7 +37,8 @@ export interface ScanResult {
   error?: string;
 }
 
-const emptyStats = (): ScanStats => ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, unreadable: 0 });
+const emptyStats = (): ScanStats =>
+  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, unreadable: 0, suppressed: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
@@ -85,6 +89,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       servers: target.servers.length,
       skills: target.skills.length,
       unreadable: target.unreadable.length,
+      suppressed: 0,
     };
 
     if (!hasSubjects(target)) {
@@ -95,7 +100,18 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       );
     }
 
-    const { findings, failures } = runRules(target, active, HELP_BASE_URI);
+    const run = runRules(target, active, HELP_BASE_URI);
+    const { failures } = run;
+
+    // Suppressions are applied against every *registered* rule id, not just the
+    // ones active this run: a suppression naming a rule `--disable` turned off
+    // is correct and forward-looking, while one naming a rule that exists
+    // nowhere is a typo that silences nothing, and gets reported (SPEC §8.3).
+    const suppression = applySuppressions(
+      run.findings, target.suppressions, new Set(RULES.map((r) => r.id)), HELP_BASE_URI,
+    );
+    const findings = sortFindings(suppression.findings);
+    stats.suppressed = suppression.suppressed;
 
     // A rule that threw means "couldn't look", not "is clean". The findings already
     // collected still go into a partial report, but the exit code says 2.

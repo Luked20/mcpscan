@@ -22,5 +22,17 @@ file.
 | [SKILL004](SKILL004.md) | Skill downloads and executes remote code | high | MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering |
 
 This is the full MVP rule catalog — see [`docs/SPEC.md`](../SPEC.md) §7 for
-the rationale behind each one. The top-level [README](../../README.md) has
+the rationale behind each one.
+
+## Diagnostics
+
+Not detection rules. These report a problem with an **annotation** in the
+scanned files rather than with the files' security, so they live in their own
+`MCPSCAN###` namespace, are not in the rule registry, and cannot be selected
+with `--rules` or turned off with `--disable`.
+
+| ID | Name | Severity |
+|---|---|---|
+| [MCPSCAN001](MCPSCAN001.md) | Malformed suppression comment | info |
+ The top-level [README](../../README.md) has
 the quick-start and CI usage.

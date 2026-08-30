@@ -1,0 +1,52 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Reads a file from disk and returns its contents.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          // mcpscan-disable-next-line MCP004 -- path is resolved and checked against ALLOWED_ROOT in readFile()
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "write_file",
+      "description": "Writes content to a file on disk.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          // mcpscan-disable-next-line MCP004
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "load_file",
+      "description": "Loads a file from disk into memory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          // mcpscan-disable-next-line MCP404 -- no such rule, so this silences nothing
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "append_file",
+      "description": "Appends a line to a file on disk.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          // mcpscan-disable-next-line -- reason given, but no rule named
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    }
+  ]
+}

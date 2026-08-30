@@ -305,6 +305,44 @@ Three mechanisms, all automated:
    `// mcpscan-disable-next-line MCP004 -- path is validated in validatePath()`
    Without the `--` and the reason, the suppression is ignored and becomes an `info` finding for "malformed suppression".
 
+   **Shipped**, in `src/collect/suppression.ts` (parse) and `src/core/suppress.ts` (apply),
+   reported under `MCPSCAN001` — its own namespace, deliberately not `MCP###`/`SKILL###`,
+   because it says nothing about the scanned server's security, only that an annotation in
+   it is unusable. It is not in the rule registry and so cannot be selected with `--rules`
+   or turned off with `--disable`. Full behaviour in `docs/rules/MCPSCAN001.md`.
+
+   The marker is matched inside any comment syntax (`//`, `#`, `<!-- -->`, block comments)
+   rather than per file type: a manifest, a `SKILL.md` and a server implementation are three
+   grammars, and the annotation should read the same in all of them. What keeps that from
+   matching every *mention* of the marker is that it must **start** a comment — nothing but
+   whitespace and comment punctuation before it on the line. Without that guard this
+   scanner's own source, which necessarily writes the marker in string literals and doc
+   comments, produced three `info` findings on a self-scan; with it, a self-scan of `src/`
+   is back to the single documented MCP008 self-match (§7.4). The remaining edge is a
+   markdown bullet (`- mcpscan-disable-next-line ...`), since `-` is also comment
+   punctuation — recorded in `docs/rules/MCPSCAN001.md`, not guarded against.
+
+   Three defects report instead of silencing, not one:
+
+   | Comment | Outcome |
+   |---|---|
+   | no `--`, or an empty reason | ignored, reported |
+   | names no rule (`mcpscan-disable-next-line -- reason`) | ignored, reported. A blanket suppression would silence every rule written *after* it, which is broader than this defines |
+   | names a rule that does not exist (`MCP404`) | ignored, reported, with the valid ids listed. This is the silent-typo failure: it looks like protection and provides none, the same reason §9 makes an unknown `--rules` id exit 2 |
+
+   Two decisions worth stating because their opposites are tempting:
+
+   - **Suppressions match against every *registered* rule, not the active set.** An
+     annotation naming a rule that `--disable` turned off this run is correct and
+     forward-looking, not a typo, and must not be reported as one.
+   - **There is no "unused suppression" diagnostic.** It would fire every time a rule is
+     narrowed or a finding genuinely fixed — precisely when the developer did the right thing.
+
+   Suppressed findings are **counted in the report header** (`· 1 suppressed`). A suppressed
+   finding is removed from the output, so that counter is the only place a reader learns it
+   existed; without it a heavily suppressed scan would look identical to a clean one, which is
+   the same false-clean §9 exists to prevent.
+
 **Mechanisms 1 and 2 are enforced by `tests/anti-fp.test.ts` from the start** — not
 bolted on once ten more rules exist. It asserts, for every rule in `RULES`: the
 fixture pair exists and is non-empty, `docs/rules/<ID>.md` exists, the declared

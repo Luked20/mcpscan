@@ -61,3 +61,5 @@ Run `git tag -a v1.4.0 -m "Release 1.4.0"` to create the release tag.
 A reason after `--` is required. A suppression with no reason is ignored and reported instead.
 
 > Suppressions are specified but **not yet implemented** — see the project README.
+
+See [MCPSCAN001](MCPSCAN001.md).

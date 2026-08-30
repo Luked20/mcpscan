@@ -5,8 +5,10 @@ import { collectManifest } from './mcp-manifest.js';
 import { collectMcpConfig } from './mcp-config.js';
 import { collectSkill } from './skill-md.js';
 import { collectSource, isTestFile } from './source.js';
+import { collectSuppressions } from './suppression.js';
 import type {
-  ScanTarget, ServerDefinition, SkillDefinition, SourceFile, ToolDefinition, UnreadableFile,
+  ScanTarget, ServerDefinition, SkillDefinition, SourceFile, Suppression, ToolDefinition,
+  UnreadableFile,
 } from '../core/types.js';
 
 const IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'];
@@ -42,6 +44,7 @@ export async function discover(root: string): Promise<ScanTarget> {
   const servers: ServerDefinition[] = [];
   const skills: SkillDefinition[] = [];
   const sourceFiles: SourceFile[] = [];
+  const suppressions: Suppression[] = [];
   const unreadable: UnreadableFile[] = [];
   let filesExamined = 0;
 
@@ -59,6 +62,10 @@ export async function discover(root: string): Promise<ScanTarget> {
       continue;
     }
     filesExamined += 1;
+
+    // Before any routing: a suppression comment is valid in every file kind the
+    // scan reads, and which collector claims the file has no bearing on it.
+    suppressions.push(...collectSuppressions(rel, text));
 
     if (basename(file) === 'SKILL.md') {
       const skill = collectSkill(rel, text);
@@ -93,5 +100,5 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
   }
 
-  return { root: base, servers, tools, skills, sourceFiles, unreadable, filesExamined };
+  return { root: base, servers, tools, skills, sourceFiles, suppressions, unreadable, filesExamined };
 }

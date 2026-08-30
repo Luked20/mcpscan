@@ -77,12 +77,45 @@ export interface UnreadableFile {
   reason: string;
 }
 
+/**
+ * Why a suppression comment cannot be honoured. A suppression that is present
+ * but unusable is never silently ignored — see `docs/SPEC.md` §8.3 and
+ * `src/collect/suppression.ts`.
+ */
+export type SuppressionDefect = 'missing-reason' | 'missing-rule-id';
+
+/**
+ * One `mcpscan-disable-next-line <ID> -- <reason>` comment (SPEC §8.3).
+ *
+ * `defect` being set is what separates "this line is suppressed" from "someone
+ * tried to suppress this line and it did not take": a defective suppression
+ * suppresses nothing and is reported instead.
+ */
+export interface Suppression {
+  file: string;
+  /** 1-based line the comment itself is on. */
+  line: number;
+  /** 1-based column where the marker starts, so the diagnostic can point at it. */
+  column: number;
+  /** 1-based line the comment applies to — always `line + 1`. */
+  targetLine: number;
+  /** Rule ids named by the comment. Empty when `defect` is `'missing-rule-id'`. */
+  ruleIds: string[];
+  /** The mandatory justification. Absent when `defect` is `'missing-reason'`. */
+  reason?: string;
+  defect?: SuppressionDefect;
+  /** The comment text as written, for the diagnostic's evidence. */
+  raw: string;
+}
+
 export interface ScanTarget {
   root: string;
   servers: ServerDefinition[];
   tools: ToolDefinition[];   // all tools, from any origin
   skills: SkillDefinition[];
   sourceFiles: SourceFile[];
+  /** Suppression comments found in any scanned file, defective ones included. */
+  suppressions: Suppression[];
   /** Name-declared files that could not be parsed. Never silently dropped. */
   unreadable: UnreadableFile[];
   /** Files read successfully — not "files that produced tools". */

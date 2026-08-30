@@ -91,12 +91,19 @@ export function runRules(target: ScanTarget, rules: Rule[], helpBaseUri: string)
     }
   }
 
-  findings.sort((a, b) =>
+  return { findings: sortFindings(findings), failures };
+}
+
+/**
+ * The report's canonical order. Exported because suppression diagnostics are
+ * appended after `runRules` has already sorted (see `core/suppress.ts`), and
+ * two different orderings in one report would be worse than none.
+ */
+export function sortFindings(findings: Finding[]): Finding[] {
+  return [...findings].sort((a, b) =>
     compareSeverity(b.severity, a.severity) ||
     cmp(a.location.file, b.location.file) ||
     cmp(a.location.line, b.location.line) ||
     cmp(a.location.column, b.location.column) ||
     cmp(a.ruleId, b.ruleId));
-
-  return { findings, failures };
 }

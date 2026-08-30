@@ -56,3 +56,5 @@ Rewrite the description as one declarative sentence stating **when the skill app
 A reason after `--` is required. A suppression with no reason is ignored and reported instead.
 
 > Suppressions are specified but **not yet implemented** — see the project README.
+
+See [MCPSCAN001](MCPSCAN001.md).

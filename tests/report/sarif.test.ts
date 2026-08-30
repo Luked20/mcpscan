@@ -16,8 +16,10 @@ describe('formatSarif', () => {
     expect(doc.version).toBe('2.1.0');
     expect(doc.$schema).toContain('sarif');
   });
-  it('declares every rule in the registry in the driver', () => {
-    expect(doc.runs[0].tool.driver.rules).toHaveLength(RULES.length);
+  it('declares every rule in the registry, plus the suppression diagnostic, in the driver', () => {
+    // +1: MCPSCAN001 is emitted outside the rule engine (core/suppress.ts) but a
+    // result can carry its id, so the driver has to declare it too.
+    expect(doc.runs[0].tool.driver.rules).toHaveLength(RULES.length + 1);
   });
   it('maps critical to level error', () => {
     expect(doc.runs[0].results[0].level).toBe('error');
@@ -70,7 +72,7 @@ describe('formatSarif', () => {
   it('zero findings produces a valid document with empty results and all rules declared', () => {
     const d = JSON.parse(formatSarif([], RULES, '0.1.0', { executionSuccessful: true }));
     expect(d.runs[0].results).toEqual([]);
-    expect(d.runs[0].tool.driver.rules).toHaveLength(RULES.length);
+    expect(d.runs[0].tool.driver.rules).toHaveLength(RULES.length + 1);
   });
   it('every result.ruleId matches a rule declared in the driver', () => {
     const d = JSON.parse(formatSarif([base], RULES, '0.1.0', { executionSuccessful: true }));

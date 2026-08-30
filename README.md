@@ -117,15 +117,32 @@ mcpscan [path]                       # default: '.'
 
 ## Suppressing a finding
 
-The plan is a per-line suppression comment with a mandatory reason:
+A per-line comment, with a mandatory reason:
 
 ```
-// mcpscan-disable-next-line MCP002 -- reason
+// mcpscan-disable-next-line MCP004 -- path is resolved and checked against ALLOWED_ROOT in readFile()
+"path": { "type": "string" }
 ```
 
-**This is not implemented yet.** It's scoped for a later phase. Right now the
-only way to silence a rule is `--disable <id>` for the whole run — there is
-no way to suppress a single finding in place.
+It applies to the next line only. Write it in whatever comment syntax the
+file uses — `//` in JSONC and TS/JS, `#`, or `<!-- -->` in a `SKILL.md`.
+Several rules at once: `MCP004, MCP005`.
+
+**The reason after `--` is required.** Leave it out and the suppression does
+nothing: the finding stands, and you get an `info` finding telling you the
+comment did not work. Same for a comment that names no rule, or names one
+that does not exist (`MCP404`) — a suppression that silently silences nothing
+is worse than no suppression at all. See
+[docs/rules/MCPSCAN001.md](docs/rules/MCPSCAN001.md).
+
+Suppressed findings are counted in the header, so a heavily suppressed scan
+never looks like a clean one:
+
+```
+mcpscan · 12 file(s) scanned · 3 with tools · 41 tool(s) · 2 server(s) · 0 skill(s) · 1 suppressed
+```
+
+To silence a rule everywhere instead of line by line, use `--disable <id>`.
 
 ## Limitations
 

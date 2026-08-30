@@ -168,7 +168,7 @@ describe('MCP005 — behaviour', () => {
       }],
     }));
     const { findings } = runRules(
-      { root: '.', servers: [], tools, skills: [], sourceFiles: [], unreadable: [], filesExamined: 1 },
+      { root: '.', servers: [], tools, skills: [], sourceFiles: [], suppressions: [], unreadable: [], filesExamined: 1 },
       [MCP005],
       'https://example.com/docs/rules/',
     );

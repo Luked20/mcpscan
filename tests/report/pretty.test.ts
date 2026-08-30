@@ -3,7 +3,7 @@ import { formatPretty } from '../../src/report/pretty.js';
 import type { Finding } from '../../src/core/types.js';
 import type { ScanStats } from '../../src/scan.js';
 
-const STATS: ScanStats = { filesExamined: 40, filesWithTools: 3, tools: 12, servers: 2, skills: 1, unreadable: 0 };
+const STATS: ScanStats = { filesExamined: 40, filesWithTools: 3, tools: 12, servers: 2, skills: 1, unreadable: 0, suppressed: 0 };
 
 const f: Finding = {
   ruleId: 'MCP002', title: 'Invisible Unicode character in tool definition',
@@ -41,7 +41,7 @@ describe('formatPretty', () => {
 });
 
 describe('formatPretty: a scan that looked at nothing', () => {
-  const zero: ScanStats = { filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, unreadable: 0 };
+  const zero: ScanStats = { filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, unreadable: 0, suppressed: 0 };
   const out = formatPretty([], {
     color: false, stats: zero, error: 'no MCP server or agent skill found in src',
   });

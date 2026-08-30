@@ -42,7 +42,7 @@ function makeTool(opts: ToolOpts): ToolDefinition {
 }
 
 function makeTarget(tools: ToolDefinition[], servers: ServerDefinition[] = []): ScanTarget {
-  return { root: '.', servers, tools, skills: [], sourceFiles: [], unreadable: [], filesExamined: tools.length };
+  return { root: '.', servers, tools, skills: [], sourceFiles: [], suppressions: [], unreadable: [], filesExamined: tools.length };
 }
 
 const check = (tools: ToolDefinition[], servers: ServerDefinition[] = []): PartialFinding[] =>
