@@ -1,0 +1,6 @@
+sequential-thinking
+  package: @modelcontextprotocol/server-sequential-thinking@2026.7.4
+  args: []
+  serverInfo: {"name":"sequential-thinking-server","version":"0.2.0"}
+  protocol: 2025-06-18
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

@@ -1,0 +1,4 @@
+anthropics/skills
+  commit: 3b3fad96af16a10759d930941b4520ba0c40edae
+  skills: academy-guide, algorithmic-art, brand-guidelines, canvas-design, claude-api, discernment-nudge, doc-coauthoring, docx, frontend-design, internal-comms, mcp-builder, pdf, pptx, skill-creator, slack-gif-creator, theme-factory, web-artifacts-builder, webapp-testing, xlsx
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

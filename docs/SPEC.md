@@ -279,6 +279,8 @@ These are known misses. All fail in the safe direction — silence rather than n
 | MCP004, MCP005 | `type: ['string', 'null']` — the array-of-types JSON Schema form | Uncommon but valid. Both rules compare `type === 'string'`. |
 | MCP001, MCP003, SKILL002 | ZWJ/ZWNJ evasion with a non-Latin neighbour | See §7.2. |
 | MCP006 (detection 1) | A real name collision where **neither, or only one**, of the colliding manifests declares an explicit root `"name"` | Detection 1 only compares `ToolDefinition.serverNameSource === 'declared'` tools — a name this scanner *derived* from a containing directory is a guess it made, not evidence any client loads that manifest alongside another. Comparing derived names is exactly what produced the original bug: unrelated fixture/example directories that happen to share a filename got reported as "different servers." The narrower rule trades this miss for eliminating that noise; see `docs/rules/MCP006.md`. Detecting the undeclared case for real requires comparing what's declared against what responds — the `--connect` collector, out of MVP scope (the same `MCP09:2025 Shadow MCP Servers` gap noted above). |
+| MCP004 | Any path parameter in a manifest where **some** tool declares a directory restriction ("Only works within allowed directories") | The declaration exempts every path parameter in that file, including a tool the allow-list may not actually cover, and a manifest can state a restriction it does not enforce. Measured against the regression corpus (§8.2), the alternative was **nine** `high` findings on the official `@modelcontextprotocol/server-filesystem` — a rule that fires on every correctly built file server is a tax on the category, not a signal. Confirming enforcement means running the server (`--connect`, out of MVP scope). See `docs/rules/MCP004.md`. |
+| SKILL004 | A skill fetching a `.md`/`.txt`/`.rst`/`.adoc` file from a mutable ref, whose content the model then acts on | This rule is *remote code fetch*; a document is read, not run. The corpus produced four `high` findings on the official `mcp-builder` skill, all of them the MCP SDK's `README.md` fetched from `main`. Remote text pulled into context is a prompt-injection risk (SKILL001/SKILL002's subject), not a supply-chain one — the finding was filed under the wrong rule, not merely noisy. See `docs/rules/SKILL004.md`. |
 | MCP006 (detection 1b) | Two servers that resolve to the same package but are declared in **two different** config files | Only entries within *one* config file are compared — nothing establishes that two separate config files are ever loaded by the same client. |
 | MCP006 (detection 2) | An imperative and the target tool's name separated by more than 6 tokens | Same trade-off as MCP004's proximity window: widening it re-admits ordinary prose that happens to mention both an imperative word and a tool name in the same paragraph without one directing the other. |
 | MCP006 (detection 2) | A directed tool named 4 characters or fewer (`get`, `run`, `list`, ...) | The minimum-name-length guard exists specifically to keep short, common-English tool names from matching everyday imperative prose that has nothing to do with tool redirection. |
@@ -314,6 +316,22 @@ nothing) — the cross-fixture check is what catches a new rule firing on anothe
 rule's clean fixture, the most common way a false positive enters unnoticed. Both
 fixture checks discover their subjects from the filesystem (`tests/fixtures/*/vulnerable`),
 not a hardcoded id list, so a new rule is covered the moment its fixtures land.
+
+**The corpus (mechanism 2) is live**, in `tests/corpus/`: `tools/list` output captured
+from four official MCP reference servers (37 tools) and all 19 `SKILL.md` files taken
+verbatim from `anthropics/skills`, all pinned to exact versions/commits and committed.
+`scripts/capture-corpus.mjs` regenerates it by hand; nothing is downloaded or executed
+at test time. See `tests/corpus/README.md`.
+
+It earned its place on the first run, producing **13 `high` findings, every one of them
+false** — nine from MCP004 against `@modelcontextprotocol/server-filesystem`, four from
+SKILL004 against the `mcp-builder` skill. Both rules were narrowed (§7.4). This is the
+mechanism working as designed and it is worth being precise about why: neither class was
+reachable by writing more clean fixtures, because a fixture is written by the same person
+who wrote the rule, in the same sitting, and encodes the same assumptions. A rule can only
+be shown to be over-broad by input nobody wrote for it. That is the corpus's whole job, and
+it is why a failure here is never resolved by adding an exception to the test — either the
+rule narrows, or the entry leaves the corpus.
 
 ---
 

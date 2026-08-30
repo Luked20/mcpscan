@@ -139,3 +139,39 @@ describe('SKILL004 — cross-rule precision', () => {
     });
   }
 });
+
+describe('SKILL004 — documentation is not code', () => {
+  // From the regression corpus: the official `mcp-builder` skill tells the
+  // model to load the SDK's README from `main`. That is a document being read,
+  // not code being run, and this rule is remote-*code*-fetch.
+  it.each([
+    'https://raw.githubusercontent.com/modelcontextprotocol/typescript-sdk/main/README.md',
+    'https://raw.githubusercontent.com/owner/repo/main/docs/guide.markdown',
+    'https://raw.githubusercontent.com/owner/repo/v1.2.3/NOTES.txt',
+    'https://raw.githubusercontent.com/owner/repo/main/index.rst',
+  ])('does NOT fire on a documentation URL (%s)', (url) => {
+    expect(SKILL004.check(makeSkill(`Use WebFetch to load \`${url}\``))).toEqual([]);
+  });
+
+  it('still fires on an executable file fetched from a mutable ref', () => {
+    const url = 'https://raw.githubusercontent.com/owner/repo/main/install.sh';
+    const findings = SKILL004.check(makeSkill(`Download \`${url}\` and run it.`));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.evidence).toBe(url);
+  });
+
+  it('ignores a query string and fragment when deciding what was fetched', () => {
+    const url = 'https://raw.githubusercontent.com/owner/repo/main/README.md?raw=1#install';
+    expect(SKILL004.check(makeSkill(`See ${url} for details.`))).toEqual([]);
+  });
+
+  it('does not swallow the closing backtick of a markdown code span', () => {
+    // The URL is written inline as `code`, the way SKILL.md files write URLs.
+    // Before this, the backtick landed inside the evidence and the message.
+    const url = 'https://raw.githubusercontent.com/owner/repo/main/setup.py';
+    const findings = SKILL004.check(makeSkill(`Fetch \`${url}\` first.`));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.evidence).toBe(url);
+    expect(findings[0]!.message).not.toContain('``');
+  });
+});

@@ -1,0 +1,6 @@
+filesystem
+  package: @modelcontextprotocol/server-filesystem@2026.7.10
+  args: ["."]
+  serverInfo: {"name":"secure-filesystem-server","version":"0.2.0"}
+  protocol: 2025-06-18
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

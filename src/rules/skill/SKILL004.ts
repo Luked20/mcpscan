@@ -41,15 +41,43 @@ const PIPE_TO_SHELL_RE = /\b(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:ba|z|k)?sh
 /** `iwr … | iex`, `Invoke-WebRequest … | Invoke-Expression` — the PowerShell equivalent. */
 const PIPE_TO_POWERSHELL_RE = /\b(?:iwr|Invoke-WebRequest)\b[^\n|]*\|\s*(?:iex|Invoke-Expression)\b/gi;
 
-/** A `raw.githubusercontent.com` URL, trailing sentence punctuation stripped. */
-const RAW_GITHUB_RE = /https?:\/\/raw\.githubusercontent\.com\/[^\s'"()<>]+/g;
+/**
+ * A `raw.githubusercontent.com` URL, trailing sentence punctuation stripped.
+ *
+ * The backtick is excluded along with the quote characters because SKILL.md is
+ * markdown: a URL written inline is almost always inside `code span` markers,
+ * and swallowing the closing backtick put it into the finding's own evidence
+ * and message (`…README.md``), which reads as a malformed URL.
+ */
+const RAW_GITHUB_RE = /https?:\/\/raw\.githubusercontent\.com\/[^\s'"`()<>]+/g;
 
 const FULL_SHA_RE = /^[0-9a-f]{40}$/i;
+
+/**
+ * Extensions that make the fetched thing documentation rather than code.
+ *
+ * This rule is `remote-code-fetch`: the risk it names is a skill running code
+ * whose content can change after review. A `.md` file is read, not run. The
+ * regression corpus (docs/SPEC.md §8.2) found this the hard way — the official
+ * `mcp-builder` skill produced four `high` findings, all of them the SDK's own
+ * `README.md` fetched from `main` for the model to read.
+ *
+ * Remote *text* pulled into a model's context is its own risk, but it is a
+ * prompt-injection risk, which is SKILL001 and SKILL002's subject, not a
+ * supply-chain one. Filed under this rule it was simply wrong.
+ */
+const DOC_EXTENSION_RE = /\.(?:md|markdown|txt|rst|adoc)$/i;
 
 /** `owner/repo/ref/path...` — the third path segment is the ref. */
 function extractRef(url: string): string | undefined {
   const path = url.replace(/^https?:\/\/raw\.githubusercontent\.com\//, '');
   return path.split('/')[2];
+}
+
+/** True when the URL points at a document, ignoring any query string or fragment. */
+function isDocumentUrl(url: string): boolean {
+  const withoutSuffix = url.split('#')[0]!.split('?')[0]!;
+  return DOC_EXTENSION_RE.test(withoutSuffix);
 }
 
 export const SKILL004 = {
@@ -97,6 +125,7 @@ export const SKILL004 = {
       const trimmed = m[0].replace(/[).,;:]+$/, '');
       const ref = extractRef(trimmed);
       if (ref !== undefined && FULL_SHA_RE.test(ref)) continue;
+      if (isDocumentUrl(trimmed)) continue;
 
       findings.push({
         location: locateInBody(skill, m.index, trimmed.length),

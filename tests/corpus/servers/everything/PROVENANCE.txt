@@ -1,0 +1,6 @@
+everything
+  package: @modelcontextprotocol/server-everything@2026.8.18
+  args: []
+  serverInfo: {"name":"mcp-servers/everything","title":"Everything Reference Server","version":"2.0.0"}
+  protocol: 2025-06-18
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

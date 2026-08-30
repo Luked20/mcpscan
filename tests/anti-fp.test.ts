@@ -7,7 +7,7 @@
  * hardcoded rule-id list — so a new rule is automatically covered the moment
  * its fixtures land, with no edit to this file.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -123,6 +123,61 @@ describe('anti-false-positive harness — cross-fixture precision (SPEC §8.2)',
       expect(result.findings).toEqual([]);
     });
   }
+});
+
+describe('anti-false-positive harness — regression corpus (SPEC §8.2)', () => {
+  // Mechanism 2. Everything under tests/corpus/ is real, third-party, and
+  // known-clean: `tools/list` output captured from the official MCP reference
+  // servers, and SKILL.md files taken verbatim from anthropics/skills. See
+  // tests/corpus/README.md for what is in it and scripts/capture-corpus.mjs
+  // for how it got there. Nothing is downloaded or executed at test time.
+  //
+  // Why this exists on top of the clean fixtures above: a fixture I wrote is
+  // shaped by the rule I was writing at the time, so it cannot tell me the
+  // rule is over-broad in a way I did not think of. Real manifests can, and
+  // did — on its first run this corpus produced 13 `high` findings, all of
+  // them false, and both are recorded in docs/SPEC.md §7.4.
+  const CORPUS_ROOT = 'tests/corpus';
+
+  let result: Awaited<ReturnType<typeof scan>>;
+  beforeAll(async () => {
+    result = await scan({ path: CORPUS_ROOT, failOn: 'none' }); // every registered rule
+  });
+
+  it('parses cleanly — a corpus the scanner cannot read proves nothing', () => {
+    expect(result.error).toBeUndefined();
+    expect(result.stats.unreadable).toBe(0);
+  });
+
+  it('actually contains subjects — an empty corpus would pass silently', () => {
+    // Hard floors, not the exact current counts: this catches a corpus that got
+    // deleted, moved, or excluded by a glob change, without failing every time
+    // someone adds a server to it.
+    expect(result.stats.tools).toBeGreaterThanOrEqual(20);
+    expect(result.stats.skills).toBeGreaterThanOrEqual(10);
+  });
+
+  it('produces zero high/critical findings from any registered rule', () => {
+    const serious = result.findings.filter((f) => f.severity === 'high' || f.severity === 'critical');
+
+    if (serious.length > 0) {
+      const detail = serious
+        .map((f) => {
+          const loc = `${f.location.file}:${f.location.line}:${f.location.column}` +
+            (f.location.jsonPath ? ` (${f.location.jsonPath})` : '');
+          return `  - ${f.ruleId} [${f.severity}] at ${loc} — ${f.message}`;
+        })
+        .join('\n');
+      throw new Error(
+        `${serious.length} high/critical finding(s) against the known-clean regression corpus:\n${detail}\n\n` +
+          'This is real third-party code that is not vulnerable. Either the rule is over-broad and ' +
+          'needs narrowing, or this corpus entry genuinely is not clean and does not belong here — ' +
+          'decide which, and record the reasoning in docs/SPEC.md §7.4. Do not add an exception here.',
+      );
+    }
+
+    expect(serious).toEqual([]);
+  });
 });
 
 describe('anti-false-positive harness — no invisible characters in .ts source (SPEC §8)', () => {

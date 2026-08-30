@@ -1,0 +1,42 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "read_text_file",
+      "description": "Read the complete contents of a file from the file system as text. Only works within allowed directories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "move_file",
+      "description": "Move or rename files and directories. Both source and destination must be within allowed directories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "destination": { "type": "string" }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    {
+      "name": "list_allowed_directories",
+      "description": "Returns the list of directories that this server is allowed to access."
+    }
+  ]
+}

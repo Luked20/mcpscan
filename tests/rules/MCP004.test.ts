@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { collectManifest } from '../../src/collect/mcp-manifest.js';
 import { MCP004 } from '../../src/rules/mcp/MCP004.js';
-import type { PartialFinding } from '../../src/core/types.js';
+import type { PartialFinding, ScanTarget, ToolDefinition } from '../../src/core/types.js';
 
 const loadFixture = (kind: 'vulnerable' | 'clean') => {
   const f = `tests/fixtures/MCP004/${kind}/tools.json`;
@@ -15,34 +15,41 @@ interface ToolShorthand {
   inputSchema?: unknown;
 }
 
-const check = (tool: ToolShorthand): PartialFinding[] => {
-  const tools = collectManifest('x.json', JSON.stringify({ tools: [tool] }));
-  return tools.flatMap((t) => MCP004.check(t));
-};
+const makeTarget = (tools: ToolDefinition[]): ScanTarget =>
+  ({ root: '.', servers: [], tools, skills: [], sourceFiles: [], unreadable: [], filesExamined: 1 });
+
+/**
+ * MCP004 is `appliesTo: 'target'` — its scope exemption is a property of the
+ * whole manifest, so the rule is handed every tool at once rather than one.
+ */
+const checkAll = (tools: ToolDefinition[]): PartialFinding[] => MCP004.check(makeTarget(tools));
+
+const check = (tool: ToolShorthand): PartialFinding[] =>
+  checkAll(collectManifest('x.json', JSON.stringify({ tools: [tool] })));
 
 describe('MCP004 — vulnerable fixture', () => {
   it('detects at least one finding per offending tool', () => {
-    const findings = loadFixture('vulnerable').flatMap((t) => MCP004.check(t));
+    const findings = checkAll(loadFixture('vulnerable'));
     // get_file_contents(path), write_file(filename), list_directory(directory),
     // read_file(path), sync_files(source, dest) = 6 findings across 5 tools.
     expect(findings.length).toBe(6);
   });
 
   it('locates the finding at the property jsonPath', () => {
-    const findings = loadFixture('vulnerable').flatMap((t) => MCP004.check(t));
+    const findings = checkAll(loadFixture('vulnerable'));
     const first = findings.find((f) => f.location.jsonPath === 'tools[0].inputSchema.properties.path');
     expect(first).toBeDefined();
   });
 
   it('names the tool and the parameter in the message', () => {
-    const findings = loadFixture('vulnerable').flatMap((t) => MCP004.check(t));
+    const findings = checkAll(loadFixture('vulnerable'));
     const first = findings[0]!;
     expect(first.message).toContain('get_file_contents');
     expect(first.message).toContain('path');
   });
 
   it('includes actionable remediation mentioning pattern/enum', () => {
-    const findings = loadFixture('vulnerable').flatMap((t) => MCP004.check(t));
+    const findings = checkAll(loadFixture('vulnerable'));
     expect(findings[0]!.remediation).toMatch(/pattern/i);
     expect(findings[0]!.remediation).toMatch(/enum/i);
   });
@@ -92,7 +99,7 @@ describe('MCP004 — vulnerable fixture', () => {
 
 describe('MCP004 — clean fixture', () => {
   it('yields zero findings across every tool', () => {
-    const findings = loadFixture('clean').flatMap((t) => MCP004.check(t));
+    const findings = checkAll(loadFixture('clean'));
     expect(findings).toEqual([]);
   });
 });
@@ -185,9 +192,8 @@ describe('MCP004 — behaviour', () => {
         inputSchema: { properties: { path: { type: 'string' } } },
       }],
     }));
-    const t = tools[0]!;
-    expect(MCP004.check(t)).toEqual(MCP004.check(t));
-    expect(MCP004.check(t)).toHaveLength(1);
+    expect(checkAll(tools)).toEqual(checkAll(tools));
+    expect(checkAll(tools)).toHaveLength(1);
   });
 
   it('rule metadata stays stable', () => {
@@ -195,7 +201,7 @@ describe('MCP004 — behaviour', () => {
     expect(MCP004.severity).toBe('high');
     expect(MCP004.confidence).toBe('medium');
     expect(MCP004.owasp).toBe('MCP02:2025 – Privilege Escalation via Scope Creep');
-    expect(MCP004.appliesTo).toBe('tool');
+    expect(MCP004.appliesTo).toBe('target');
   });
 });
 
@@ -204,7 +210,75 @@ describe('MCP004 — cross-rule precision', () => {
     it(`does not fire on the ${id} clean fixture`, () => {
       const f = `tests/fixtures/${id}/clean/tools.json`;
       const tools = collectManifest(f, readFileSync(f, 'utf8'));
-      expect(tools.flatMap((t) => MCP004.check(t))).toEqual([]);
+      expect(checkAll(tools)).toEqual([]);
     });
   }
+});
+
+describe('MCP004 — manifest-wide scope exemption', () => {
+  const pathTool = (name: string, description: string) => ({
+    name,
+    description,
+    inputSchema: { type: 'object', properties: { path: { type: 'string' } } },
+  });
+
+  const fromManifest = (file: string, tools: unknown[]) =>
+    collectManifest(file, JSON.stringify({ tools }));
+
+  it('fires on a file tool whose manifest never declares a restricted scope', () => {
+    const tools = fromManifest('server/tools.json', [pathTool('read_file', 'Reads a file from disk.')]);
+    expect(checkAll(tools)).toHaveLength(1);
+  });
+
+  it('does NOT fire when the tool itself declares the restriction', () => {
+    const tools = fromManifest('server/tools.json', [
+      pathTool('read_file', 'Reads a file from disk. Only works within allowed directories.'),
+    ]);
+    expect(checkAll(tools)).toEqual([]);
+  });
+
+  it('exempts every tool in a manifest where any one tool declares the restriction', () => {
+    // The shape the regression corpus actually produced: the official
+    // filesystem server's `read_file` is a deprecated one-line alias with no
+    // room for the claim, sitting directly above `read_text_file`, which makes
+    // it. Flagging one while clearing the other contradicts itself inside a
+    // single file, for two tools the same handler protects identically.
+    const tools = fromManifest('server/tools.json', [
+      pathTool('read_file', 'Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead.'),
+      pathTool(
+        'read_text_file',
+        'Read the complete contents of a file from the file system as text. Only works within allowed directories.',
+      ),
+    ]);
+    expect(checkAll(tools)).toEqual([]);
+  });
+
+  it('does NOT let one manifest\'s declaration exempt a different manifest', () => {
+    const scoped = fromManifest('scoped/tools.json', [
+      pathTool('read_text_file', 'Reads a file. Only works within allowed directories.'),
+    ]);
+    const open = fromManifest('open/tools.json', [pathTool('read_file', 'Reads a file from disk.')]);
+    const findings = checkAll([...scoped, ...open]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('read_file');
+  });
+
+  it('accepts the "must be within allowed directories" phrasing', () => {
+    const tools = fromManifest('server/tools.json', [{
+      name: 'move_file',
+      description: 'Move or rename files and directories. Both source and destination must be within allowed directories.',
+      inputSchema: {
+        type: 'object',
+        properties: { source: { type: 'string' }, destination: { type: 'string' } },
+      },
+    }]);
+    expect(checkAll(tools)).toEqual([]);
+  });
+
+  it('does NOT treat prose that merely mentions a directory as a scope declaration', () => {
+    const tools = fromManifest('server/tools.json', [
+      pathTool('read_file', 'Reads a file from disk. The directory is resolved relative to the project root.'),
+    ]);
+    expect(checkAll(tools)).toHaveLength(1);
+  });
 });

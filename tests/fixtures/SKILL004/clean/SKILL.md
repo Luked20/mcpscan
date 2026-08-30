@@ -26,6 +26,14 @@ Pinned to an exact commit, not a branch, so review stays valid over time:
 https://raw.githubusercontent.com/example-org/example-repo/da39a3ee5e6b4b0d3255bfef95601890afd80709/scripts/helper.sh
 ```
 
+## Reading the upstream documentation
+
+Documentation is read, not run. A `.md` file fetched for reference is not a
+remote-code fetch, even from a branch:
+
+- Load `https://raw.githubusercontent.com/example-org/example-repo/main/README.md`
+  for the field reference.
+
 ## Replaying a local log through a filter
 
 This only touches a file already on disk — no network fetch is involved:
