@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { FINGERPRINT_KEY, fingerprint, toPosix } from '../core/fingerprint.js';
 import { SUPPRESSION_DIAGNOSTIC } from '../core/suppress.js';
 import type { Finding, Rule, Severity } from '../core/types.js';
 
@@ -9,21 +9,6 @@ const LEVEL: Record<Severity, 'error' | 'warning' | 'note'> = {
 const SECURITY_SCORE: Record<Severity, string> = {
   critical: '9.0', high: '7.5', medium: '5.0', low: '3.0', info: '1.0',
 };
-
-/** A relative URI in SARIF always uses '/', even when collected on Windows. */
-const toPosix = (file: string): string => file.split('\\').join('/');
-
-/**
- * Fingerprint stable across commits. Does NOT include the line number: if it
- * did, any edit above the finding would create a new alert on GitHub and the
- * user would turn the tool off within the second week.
- */
-function fingerprint(f: Finding): string {
-  return createHash('sha256')
-    .update([f.ruleId, toPosix(f.location.file), f.location.jsonPath ?? '', (f.evidence ?? '').trim()].join('\u0000'))
-    .digest('hex')
-    .slice(0, 16);
-}
 
 export interface SarifInvocationOptions {
   /** false when the scan could not run to completion (exit code 2, "couldn't look"). */
@@ -86,7 +71,7 @@ export function formatSarif(
         ruleId: f.ruleId,
         level: LEVEL[f.severity],
         message: { text: `${f.message} ${f.remediation}` },
-        partialFingerprints: { 'mcpScan/v1': fingerprint(f) },
+        partialFingerprints: { [FINGERPRINT_KEY]: fingerprint(f) },
         locations: [{
           physicalLocation: {
             artifactLocation: { uri: toPosix(f.location.file) },

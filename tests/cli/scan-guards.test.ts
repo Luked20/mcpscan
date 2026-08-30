@@ -48,7 +48,7 @@ describe('nothing to scan', () => {
 
   it('stats separate files scanned from files with tools', async () => {
     const r = await scan({ path: VULN, failOn: 'high' });
-    expect(r.stats).toEqual({ filesExamined: 1, filesWithTools: 1, tools: 1, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0 });
+    expect(r.stats).toEqual({ filesExamined: 1, filesWithTools: 1, tools: 1, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0, baselined: 0 });
   });
 
   it('a directory holding only a SKILL.md is a real subject, not exit 2', async () => {

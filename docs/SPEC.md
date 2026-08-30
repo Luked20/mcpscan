@@ -395,7 +395,7 @@ rule narrows, or the entry leaves the corpus.
 ```
 mcpscan [path]                       # default: '.'
 
-  --format <fmt>      pretty | json | sarif | github   (default: pretty if TTY, json otherwise)
+  --format <fmt>      pretty | json | sarif | github | baseline   (default: pretty if TTY, json otherwise)
   --output <file>     write to a file instead of stdout
   --fail-on <sev>     critical | high | medium | low | none   (default: high)
   --rules <ids>       comma-separated list; run only these
@@ -406,6 +406,75 @@ mcpscan [path]                       # default: '.'
   --no-color
   --quiet
 ```
+
+Everything above is implemented except `--connect`, which is out of MVP scope (§7.1).
+
+### 9.2 Precedence
+
+**CLI flag > config file > built-in default**, without exception. A flag someone typed is a
+decision made for this run and a file in the repository must never override it. The merge is
+`resolveOptions()` in `src/config.ts`, kept pure and separately tested: an option whose default
+is applied too early stops the config from ever being consulted, and nothing about the output
+would show it.
+
+### 9.3 `mcpscan.config.json`
+
+```json
+{ "version": 1, "failOn": "high", "rules": [], "disable": ["MCP007"], "format": "sarif", "baseline": "mcpscan-baseline.json" }
+```
+
+Two properties follow directly from §16.1 and §16.3, and are in the first version rather than
+retrofitted:
+
+- **`version` is required.** A wire format without one cannot be changed later without breaking
+  every file already written.
+- **An unrecognised key is exit 2, not a shrug.** The failure mode §16.1 lists for this file is
+  "scan silently runs with defaults" — `"failon"` for `"failOn"` is exactly that, and nothing
+  else in the run would ever mention it. Rejecting costs one clear error; accepting costs a
+  wrong scan indefinitely.
+
+A config file the user *named* and that is missing is exit 2; the default file simply not
+existing is the normal case and means "no config". Rule ids are not validated here — `scan()`
+already rejects an unknown id wherever it came from, and two validators for one thing drift.
+
+### 9.4 Baseline
+
+Adopting a scanner on an existing repository is the moment it gets used or gets deleted. A
+first run on untouched code lights up, and a developer facing forty findings they did not
+introduce either fixes all of them before merging anything or turns the scanner off. The
+baseline is the third option: record what is already there, fail only on what is new.
+
+Generated through the format machinery rather than a flag of its own — a baseline is a
+rendering of the findings, which is what a format is:
+
+```
+mcpscan --format baseline --output mcpscan-baseline.json
+mcpscan --baseline mcpscan-baseline.json
+```
+
+- **Entries match on the SARIF fingerprint** (`core/fingerprint.ts`), extracted so the baseline
+  and `partialFingerprints` cannot develop two different notions of "the same finding". Since
+  that fingerprint excludes the line number, a baseline does not go stale when an unrelated edit
+  shifts a finding down the file.
+- **The file is versioned and names its fingerprint scheme.** A baseline written under a future
+  `mcpScan/v2` is detected and rejected rather than silently matching nothing.
+- **It stores `ruleId`, `file` and `jsonPath` alongside each hash** so a reviewer can see what
+  was accepted. A list of opaque hashes is unreviewable, and an unreviewable baseline is how
+  findings quietly become permanent. It stores neither the message (not contract, §16.5) nor the
+  line — both would churn the committed file for fields nothing matches on.
+- **A baseline that fails to load is exit 2**, never "no baseline". Degrading would turn every
+  accepted finding back on at once, which reads as the scanner having found new problems.
+- Baseline is applied *after* suppressions, so a finding with a written justification is not also
+  counted as untriaged backlog.
+
+### 9.5 `--quiet`
+
+Prints findings only: no header, no severity summary, and **nothing at all** when a successful
+scan is clean. It affects `pretty` alone — silencing a machine-readable format would defeat the
+purpose of asking for it.
+
+The one thing it must never do is make "could not look" look like "clean" (§16.6), so an error
+prints in full regardless. Silence is only ever allowed to mean clean.
 
 **Exit codes** (stable contract — CI depends on this):
 
@@ -427,6 +496,8 @@ Telling 1 from 2 matters: `1` means "found a problem", `2` means "couldn't look"
 | Invalid value in `--fail-on` or `--format` | `--fail-on NONE` (uppercase) made `rank()` return `-1` and the threshold accept everything |
 | **Zero subjects discovered** | Pointing at the wrong directory gave the same green checkmark as a genuinely clean scan |
 | **A rule threw an exception** | A broken rule turned into an `info` finding; with `--fail-on high` CI stayed green. A bug in any rule turned into a silent false-clean. |
+| **A named `--config` file is missing, malformed, wrongly versioned, or has an unrecognised key** | The scan would run with defaults while a file in the repository says otherwise, and nothing would report it (§16.1). |
+| **A `--baseline` file is missing, malformed, or wrongly versioned** | Degrading to "no baseline" turns every already-accepted finding back on at once, which is indistinguishable from the scanner having found new problems. |
 
 The report for a scan with zero subjects **must not** look visually identical to a clean scan. `stats` reports two distinct counts: files **scanned** and files that **produced** tools.
 

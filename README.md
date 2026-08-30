@@ -106,14 +106,54 @@ rationale behind the ones that already exist.
 ```
 mcpscan [path]                       # default: '.'
 
-  --format <fmt>     pretty | json | sarif | github
+  --format <fmt>     pretty | json | sarif | github | baseline
                      (default: pretty if stdout is a TTY, json otherwise)
   --output <file>    write to a file instead of stdout
   --fail-on <sev>    critical | high | medium | low | none  (default: high)
   --rules <ids>      run only these rules (comma-separated)
   --disable <ids>    turn off these rules (comma-separated)
+  --baseline <file>  ignore findings already listed in this file
+  --config <file>    config file (default: mcpscan.config.json if present)
+  --quiet            print findings only; nothing at all when a scan is clean
   --no-color         disable colors
 ```
+
+## Adopting it on an existing repo
+
+The first scan of a repository that has never been scanned will find things. If
+you can't fix them all today, record them and fail only on what's new:
+
+```bash
+npx mcpscan --format baseline --output mcpscan-baseline.json   # once
+npx mcpscan --baseline mcpscan-baseline.json                   # from then on
+```
+
+Commit the baseline. It stores a stable fingerprint per finding plus the rule
+id and file, so you can read it in review — and the fingerprint ignores line
+numbers, so it doesn't go stale when you edit the file above a finding. Delete
+entries from it as you fix them.
+
+A baseline is the blunt instrument. When a finding has an actual answer, prefer
+a [suppression comment](docs/rules/MCPSCAN001.md) — it lives on the line and
+carries the reason.
+
+## Config file
+
+Optional. `mcpscan.config.json` in the working directory, picked up
+automatically:
+
+```json
+{
+  "version": 1,
+  "failOn": "high",
+  "disable": ["MCP007"],
+  "baseline": "mcpscan-baseline.json"
+}
+```
+
+A command-line flag always wins over the file. `version` is required, and an
+unrecognised key is an error rather than being ignored — a typo'd key would
+otherwise leave the setting at its default with nothing to tell you.
 
 ## Suppressing a finding
 

@@ -7,6 +7,15 @@ export interface PrettyOptions {
   stats: ScanStats;
   /** Present when the scan couldn't look at anything (exit 2). */
   error?: string;
+  /**
+   * `--quiet`: drop the header and the severity summary, and say nothing at all
+   * when a successful scan found nothing.
+   *
+   * What it must never hide is the difference between "clean" and "could not
+   * look" (SPEC §16.6). So an `error` still prints, in full, quiet or not — the
+   * silence is reserved for the one case where silence is true.
+   */
+  quiet?: boolean;
 }
 
 const PAINT: Record<Severity, (s: string) => string> = {
@@ -32,19 +41,27 @@ function findingLines(findings: Finding[], c: Paint): string[] {
 
 export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   const c = (fn: (s: string) => string, s: string) => (opts.color ? fn(s) : s);
-  const { filesExamined, filesWithTools, tools, servers, skills, sourceFiles, unreadable, suppressed } = opts.stats;
-  const lines: string[] = [
+  const {
+    filesExamined, filesWithTools, tools, servers, skills, sourceFiles,
+    unreadable, suppressed, baselined,
+  } = opts.stats;
+
+  const header =
     `mcpscan · ${filesExamined} file(s) scanned · ${filesWithTools} with tools · ` +
     `${tools} tool(s) · ${servers} server(s) · ${skills} skill(s) · ${sourceFiles} source file(s)` +
     (unreadable > 0 ? ` · ${unreadable} unreadable` : '') +
-    // Suppressed findings are dropped from the report, so the only place a
-    // reader can learn they existed is this counter. A silent drop would make
-    // a heavily suppressed scan indistinguishable from a clean one.
-    (suppressed > 0 ? ` · ${suppressed} suppressed` : ''),
-    '',
-  ];
+    // Suppressed and baselined findings are dropped from the report, so these
+    // counters are the only place a reader learns they existed. A silent drop
+    // would make a heavily suppressed or heavily baselined scan
+    // indistinguishable from a clean one.
+    (suppressed > 0 ? ` · ${suppressed} suppressed` : '') +
+    (baselined > 0 ? ` · ${baselined} baselined` : '');
 
-  // A scan that couldn't look at anything must not look like a clean scan.
+  const lines: string[] = opts.quiet === true ? [] : [header, ''];
+
+  // A scan that couldn't look at anything must not look like a clean scan --
+  // this branch ignores `quiet` on purpose. Silence is only ever allowed to
+  // mean "clean", never "could not look".
   if (opts.error !== undefined) {
     if (findings.length > 0) lines.push(...findingLines(findings, c));
     lines.push(c(pc.red, `Nothing scanned: ${opts.error}`), '');
@@ -52,11 +69,13 @@ export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   }
 
   if (findings.length === 0) {
+    if (opts.quiet === true) return '';
     lines.push(c(pc.green, 'No problems found.'), '');
     return lines.join('\n');
   }
 
   lines.push(...findingLines(findings, c));
+  if (opts.quiet === true) return lines.join('\n');
 
   const counts = (['critical', 'high', 'medium', 'low', 'info'] as Severity[])
     .map((s) => [s, findings.filter((f) => f.severity === s).length] as const)

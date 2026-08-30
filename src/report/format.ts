@@ -1,5 +1,13 @@
-/** Output formats actually implemented. */
-export const FORMATS = ['pretty', 'json', 'sarif', 'github'] as const;
+/**
+ * Output formats actually implemented.
+ *
+ * `baseline` is here rather than behind a `--write-baseline` flag of its own: a
+ * baseline is a rendering of the findings, which is exactly what a format is,
+ * and `--format baseline --output mcpscan-baseline.json` reuses the `--output`
+ * plumbing and the validation that already exists. A `--baseline` you can
+ * consume but not produce would not be a feature.
+ */
+export const FORMATS = ['pretty', 'json', 'sarif', 'github', 'baseline'] as const;
 export type Format = (typeof FORMATS)[number];
 
 /** Announced in the SPEC, not yet implemented — rejecting is more honest than emitting JSON. */

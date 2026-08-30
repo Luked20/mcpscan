@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import { discover } from './collect/index.js';
 import { runRules, sortFindings } from './core/engine.js';
 import { applySuppressions } from './core/suppress.js';
+import { fingerprint } from './core/fingerprint.js';
 import { RULES } from './rules/index.js';
 import { atLeast, isFailOn, FAIL_ON_VALUES } from './core/severity.js';
 import type { Finding, Rule, ScanTarget, Severity } from './core/types.js';
@@ -13,6 +14,13 @@ export interface ScanOptions {
   failOn: Severity | 'none';
   rules?: string[];
   disable?: string[];
+  /**
+   * Fingerprints of findings already accepted (`--baseline`). Parsed by the
+   * caller — `scan()` does no I/O of its own beyond reading the scanned tree,
+   * and a baseline that failed to load must never reach here looking like an
+   * empty one (see `report/baseline.ts`).
+   */
+  baseline?: ReadonlySet<string>;
 }
 
 export interface ScanStats {
@@ -30,6 +38,8 @@ export interface ScanStats {
   unreadable: number;
   /** Findings dropped by a well-formed suppression comment. Reported, never silent. */
   suppressed: number;
+  /** Findings dropped because the baseline already lists them. Reported, never silent. */
+  baselined: number;
 }
 
 export interface ScanResult {
@@ -40,7 +50,7 @@ export interface ScanResult {
 }
 
 const emptyStats = (): ScanStats =>
-  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0 });
+  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0, baselined: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
@@ -93,6 +103,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       sourceFiles: target.sourceFiles.length,
       unreadable: target.unreadable.length,
       suppressed: 0,
+      baselined: 0,
     };
 
     if (!hasSubjects(target)) {
@@ -113,8 +124,19 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
     const suppression = applySuppressions(
       run.findings, target.suppressions, new Set(RULES.map((r) => r.id)), HELP_BASE_URI,
     );
-    const findings = sortFindings(suppression.findings);
     stats.suppressed = suppression.suppressed;
+
+    // Baseline after suppressions, not before: a finding with a written
+    // justification on its own line is already answered, and counting it
+    // again as 'baselined' would overstate the untriaged backlog -- which is
+    // the one number the baseline exists to make visible.
+    const accepted = opts.baseline;
+    const kept = accepted === undefined
+      ? suppression.findings
+      : suppression.findings.filter((f) => !accepted.has(fingerprint(f)));
+    stats.baselined = suppression.findings.length - kept.length;
+
+    const findings = sortFindings(kept);
 
     // A rule that threw means "couldn't look", not "is clean". The findings already
     // collected still go into a partial report, but the exit code says 2.
