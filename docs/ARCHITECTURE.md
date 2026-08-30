@@ -33,7 +33,7 @@ Esse é o fluxo inteiro. Tudo no projeto é uma dessas cinco etapas:
   └───────────┘
         │  ScanTarget  (tools, servers, skills, sourceFiles, suppressions)
         ▼
-  ┌───────────┐   roda as 13 regras sobre essa estrutura
+  ┌───────────┐   roda as 14 regras sobre essa estrutura
   │  ANALISAR │   ── src/rules/ + src/core/engine.ts
   └───────────┘
         │  Finding[]
@@ -82,7 +82,7 @@ mcpscan/
 │   ├── cli/        entrada do executável
 │   ├── collect/    lê arquivos → estrutura
 │   ├── core/       tipos, motor de regras, utilidades
-│   ├── rules/      as 13 regras de detecção
+│   ├── rules/      as 14 regras de detecção
 │   ├── report/     estrutura → texto
 │   ├── scan.ts     orquestra tudo
 │   └── config.ts   lê o mcpscan.config.json
@@ -111,14 +111,14 @@ testar — você passa uma string e confere a saída.
 | `mcp-manifest.ts` | Lê um JSON com uma lista `tools` → `ToolDefinition[]` |
 | `mcp-config.ts` | Lê `.mcp.json` / `claude_desktop_config.json` → `ServerDefinition[]` |
 | `skill-md.ts` | Lê um `SKILL.md` (frontmatter YAML + corpo) → `SkillDefinition` |
-| `source.ts` | Lê `.ts`/`.js` → `SourceFile` (só classifica a linguagem e guarda o texto) |
+| `source.ts` | Lê `.ts`/`.js`/`.py` → `SourceFile` (só classifica a linguagem e guarda o texto) |
 | `suppression.ts` | Acha os comentários `mcpscan-disable-next-line` em qualquer arquivo |
 
 **Como o `index.ts` decide o destino de cada arquivo:**
 
 ```
 arquivo chamado SKILL.md?          → skill-md.ts
-extensão .ts/.js/.mjs/.cjs/…?      → source.ts   (mas pula arquivos de teste)
+extensão .ts/.js/.py/…?            → source.ts   (mas pula arquivos de teste)
 qualquer outro .json               → mcp-manifest.ts
   e se o nome for .mcp.json,
   mcp.json ou claude_desktop_       → mcp-config.ts também
@@ -148,7 +148,7 @@ Dois detalhes que economizam confusão depois:
 | `suppress.ts` | Aplica as supressões e reporta as que não funcionaram. |
 | `fingerprint.ts` | A identidade estável de um achado. Usada pelo SARIF e pelo baseline. |
 
-### `/src/rules` — as 13 regras
+### `/src/rules` — as 14 regras
 
 Uma regra é um objeto com metadados (`id`, `title`, `severity`, `confidence`,
 `owasp`) e uma função `check()`. Nada mais.
@@ -160,7 +160,7 @@ O campo **`appliesTo`** diz o que a regra quer receber:
 | `tool` | uma tool por vez | MCP001, MCP002, MCP003, MCP005 |
 | `server` | uma entrada de config por vez | MCP007, MCP009 |
 | `skill` | um `SKILL.md` por vez | SKILL001–SKILL004 |
-| `sourceFile` | um arquivo de código por vez | MCP008 |
+| `sourceFile` | um arquivo de código por vez | MCP008, MCP010 |
 | `target` | **o scan inteiro** | MCP004, MCP006 |
 
 `target` existe porque algumas perguntas só fazem sentido olhando tudo: "essa
@@ -177,8 +177,9 @@ tool tem o mesmo nome que outra?" não dá para responder olhando uma tool só.
 | MCP005 | Parâmetro de comando sem restrição | high |
 | MCP006 | Tool que sobrepõe ou dá ordens sobre outra | high |
 | MCP007 | Servidor iniciado sem versão fixada | medium |
-| MCP008 | `eval`, `exec` e afins no código do servidor | high |
+| MCP008 | `eval`, `exec` e afins no código do servidor (TypeScript/JavaScript) | high |
 | MCP009 | Credencial escrita direto no config | high |
+| MCP010 | `eval`, `exec`, shell e desserialização insegura em código Python | high |
 | SKILL001 | Instrução escondida no corpo da skill | critical |
 | SKILL002 | Instrução para o modelo na `description` da skill | critical |
 | SKILL003 | Skill usa capacidade que não declarou | high |

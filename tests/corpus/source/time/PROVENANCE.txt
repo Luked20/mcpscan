@@ -1,0 +1,4 @@
+modelcontextprotocol/servers
+  commit: cda92bdaacd558192fedf1a60d2bb27510792388
+  file:   src/time/src/mcp_server_time/server.py
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

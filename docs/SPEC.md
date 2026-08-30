@@ -176,6 +176,7 @@ With a generic `Rule<S>`, a rule declaring `appliesTo: 'tool'` but typed as `Rul
 | **MCP008** | `dangerous-sink-in-source` | high | medium | In source code: `eval(`, `new Function(`, `child_process.exec(` with a template literal, `fs.readFile` with a value coming straight from `request.params.arguments`. |
 | **MCP006** | `tool-shadowing` | high | medium | Two tools with the same name on different servers; or a tool's `description` naming another tool with an imperative verb ("when using `send_email`, first call…"). |
 | **MCP007** | `unpinned-server-provenance` | medium | high | Config with `npx -y pkg` without a pinned version, `@latest`, `curl \| sh` in the command, or an unencrypted `http://` URL. |
+| **MCP010** | `dangerous-sink-in-python-source` | high | medium | MCP008's sibling for Python: `eval`/`exec`, `os.system`/`os.popen`/`subprocess` with a built command, and deserialisation that runs code while decoding (`pickle`, `marshal`, `yaml.load` with no `Loader=`). Added after a scan of `awslabs/mcp` — 111 files at the time — reported **two** source files, because those were the only two that were not Python. |
 | **MCP009** | `secret-in-mcp-config` | high | high | A value in `env` matching a known credential format (`sk-`, `ghp_`, `AKIA`, JWT). Evidence always redacted. |
 
 ### Agent skills
@@ -239,7 +240,7 @@ IDs verified on 2026-08-28 against <https://owasp.org/www-project-mcp-top-10/>. 
 | `MCP02:2025` | Privilege Escalation via Scope Creep | MCP004, SKILL003 |
 | `MCP03:2025` | Tool Poisoning | MCP001, MCP002, MCP003, MCP006 |
 | `MCP04:2025` | Software Supply Chain Attacks & Dependency Tampering | MCP007, SKILL004 |
-| `MCP05:2025` | Command Injection & Execution | MCP005, MCP008 |
+| `MCP05:2025` | Command Injection & Execution | MCP005, MCP008, MCP010 |
 | `MCP06:2025` | Intent Flow Subversion | — |
 | `MCP07:2025` | Insufficient Authentication & Authorization | — |
 | `MCP08:2025` | Lack of Audit and Telemetry | — (out of scope: it's the enterprise layer) |
@@ -287,7 +288,9 @@ These are known misses. All fail in the safe direction — silence rather than n
 | MCP006 (detection 2) | A directed tool named 4 characters or fewer (`get`, `run`, `list`, ...) | The minimum-name-length guard exists specifically to keep short, common-English tool names from matching everyday imperative prose that has nothing to do with tool redirection. |
 | MCP008 | A sink reached through indirection — `const run = eval; run(x)`, a re-exported alias, or `globalThis['ev' + 'al'](x)` | Pattern matching over raw text has no notion of aliasing or dynamic property construction. |
 | MCP008 | No proof that a flagged sink's argument actually derives from a tool call's arguments | This is the rule's defining limitation, not an edge case — see `docs/rules/MCP008.md`. It is why the rule is risk-surface (`confidence: 'medium'`), not payload. |
-| MCP008 | Sinks in a `SourceFile` whose `language` is not `ts`/`js` (e.g. Python's `subprocess.run(shell=True, ...)`) | The MVP's source collector only classifies `ts`/`js`/`py`, and MCP008 only inspects `ts`/`js`; a Python-language rule is future work, not this one. |
+| MCP008 | Sinks in a `SourceFile` whose `language` is neither `ts`/`js` nor `py` | Python is now MCP010's subject; every other language is still uncollected and unscanned. |
+| MCP010 | A sink reached through `from subprocess import run` — no `subprocess.` prefix to match | The same aliasing blindness MCP008 has, and it costs more here: `from x import y` is far more common in Python than its JavaScript equivalent. |
+| MCP010 | A command assembled in a variable and then passed in — `os.system(cmd)` | A bare variable says nothing about where its value came from; firing on it would flag every server that builds argv in a helper. Deliberate under-detection, matching MCP008's treatment of `exec(cmd)`. |
 | MCP008 | A real sink inside a test file (`tests/`, `test/`, `__tests__/`, `__mocks__/`, `spec/` path segment, or a `*.test.*`/`*.spec.*` basename) | The source collector (`isTestFile()` in `src/collect/source.ts`) excludes test files before a `SourceFile` is even produced, for every current and future source rule, not just MCP008. Test code never runs in front of an agent, so a sink inside it is not deployed code and not a real finding — the same reasoning MCP001–MCP006 apply implicitly by only shipping rules over manifests/skills a client actually loads. |
 
 **Accepted false positive (the inverse case, listed here because it is the direct counterpart of the row above): MCP008 matches its own source.** `src/rules/mcp/MCP008.ts` contains, as regex literals and doc comments, the exact substrings (`eval(`, `new Function(`, `child_process.exec(`, `execSync(`) it hunts for, so a self-scan of this repository always flags this file. This is not a bug and not worth contorting the rule's own source to dodge — a scanner that greps for `eval(` will match a file that discusses `eval(`. The test-file exclusion above does not help here because the rule's source is deployed code, not a test. This is the one genuine, permanent line item in mcpscan's self-scan that no amount of precision work removes.

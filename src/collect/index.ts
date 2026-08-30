@@ -18,7 +18,7 @@ const MAX_BYTES = 2_000_000;
 const CONFIG_BASENAMES = new Set(['.mcp.json', 'mcp.json', 'claude_desktop_config.json']);
 
 /** Extensions routed to the source collector (MCP008) rather than the manifest collector. */
-const SOURCE_EXTENSIONS = new Set(['.ts', '.js', '.mjs', '.cjs', '.mts', '.cts']);
+const SOURCE_EXTENSIONS = new Set(['.ts', '.js', '.mjs', '.cjs', '.mts', '.cts', '.py']);
 
 /**
  * `root` can be a directory or a file. The CLI advertises both
@@ -35,7 +35,7 @@ export async function discover(root: string): Promise<ScanTarget> {
   const base = isDir ? abs : dirname(abs);
   const files = isDir
     ? await glob(
-        ['**/*.json', '**/SKILL.md', '**/*.{ts,js,mjs,cjs,mts,cts}'],
+        ['**/*.json', '**/SKILL.md', '**/*.{ts,js,mjs,cjs,mts,cts,py}'],
         { cwd: abs, ignore: IGNORE, dot: true, absolute: true },
       )
     : [abs];

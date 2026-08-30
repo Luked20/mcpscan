@@ -66,11 +66,12 @@ verbatim at a pinned commit:
 | Directory | Files |
 |---|---|
 | `filesystem/` | `index.ts`, `lib.ts`, `path-utils.ts`, `path-validation.ts`, `roots-utils.ts` |
+| `git/`, `fetch/`, `time/` | `server.py` — the Python half of the reference servers |
 | `memory/` | `index.ts` |
 | `sequential-thinking/` | `index.ts`, `lib.ts`, `version.ts` |
 | `everything/` | `index.ts` |
 
-This is MCP008's only real-world input. Its own fixtures are code written to
+This is MCP008's and MCP010's only real-world input. Its own fixtures are code written to
 trip it, which can show it fires when it should and can never show it firing
 on code nobody wrote to trip it. `filesystem` is the largest entry on
 purpose: a server whose entire job is touching the filesystem on paths an
@@ -148,9 +149,9 @@ honest outcomes, and the point of the corpus is to force the choice:
 - **Servers needing credentials.** Every captured server starts with no API
   key, which biases `servers/` toward small, local, official ones. The
   third-party entries in `configs/` partly offset this, but only for config.
-- **Non-TypeScript server source.** `source/` is all TypeScript, matching
-  MCP008's own scope. A Python server's sinks (`subprocess.run(shell=True)`)
-  are out of scope for the rule and so absent here too.
+- **Server source beyond TypeScript and Python.** Those are the two languages
+  the rules cover (MCP008 and MCP010); anything else is neither collected nor
+  scanned.
 - **A genuinely adversarial corpus.** Everything here is known-clean by
   construction. It measures false positives and says nothing about false
   negatives — for which the honest answer stays `docs/SPEC.md` §14.

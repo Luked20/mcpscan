@@ -223,6 +223,12 @@ const SOURCE_FILES = [
     files: ['src/sequentialthinking/index.ts', 'src/sequentialthinking/lib.ts', 'src/sequentialthinking/version.ts'],
   },
   { id: 'everything', files: ['src/everything/index.ts'] },
+  // Python, for MCP010. The reference servers are split between the two
+  // languages, and until these were here MCP010 had no real-world input at
+  // all -- the same gap MCP008 had before source/ existed.
+  { id: 'git', files: ['src/git/src/mcp_server_git/server.py'] },
+  { id: 'fetch', files: ['src/fetch/src/mcp_server_fetch/server.py'] },
+  { id: 'time', files: ['src/time/src/mcp_server_time/server.py'] },
 ];
 
 async function captureSource() {
