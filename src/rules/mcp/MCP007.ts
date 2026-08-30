@@ -32,7 +32,7 @@ export const MCP007: Rule = {
     // 1. Fetched at run time with no exact version pin.
     if (FETCH_AND_RUN.test(argv) && !EXACT_PIN.test(argv)) {
       findings.push({
-        location: server.loc(`${server.origin.jsonPath}.args`),
+        location: server.loc(['args']),
         message:
           `Server "${server.name}" is started by fetching a package at run time with no exact ` +
           `version pin, so each run may download different code than the one you reviewed.`,
@@ -47,7 +47,7 @@ export const MCP007: Rule = {
     // 2. Downloaded straight into a shell.
     if (PIPE_TO_SHELL.test(argv) || PIPE_TO_POWERSHELL.test(argv)) {
       findings.push({
-        location: server.loc(`${server.origin.jsonPath}.command`),
+        location: server.loc(['command']),
         message:
           `Server "${server.name}" pipes downloaded content directly into a shell. Whatever the ` +
           `remote host serves at run time is executed, and it need not be what it served when you looked.`,
@@ -61,7 +61,7 @@ export const MCP007: Rule = {
     // 3. Plaintext transport.
     if (server.url !== undefined && server.url.startsWith('http://')) {
       findings.push({
-        location: server.loc(`${server.origin.jsonPath}.url`),
+        location: server.loc(['url']),
         message:
           `Server "${server.name}" is reached over plaintext http://. Traffic and any bearer token ` +
           `sent with it are readable and modifiable in transit.`,

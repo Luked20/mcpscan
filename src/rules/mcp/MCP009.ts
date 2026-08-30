@@ -47,7 +47,7 @@ export const MCP009: Rule = {
       if (!hit) continue;
 
       findings.push({
-        location: server.loc(`${server.origin.jsonPath}.env.${key}`),
+        location: server.loc(['env', key]),
         message:
           `The \`${key}\` environment value of server "${server.name}" looks like ${hit[0]} ` +
           `written literally into the config file.`,

@@ -27,7 +27,7 @@ export const MCP002 = {
       if (hitCount === 0) continue;
 
       findings.push({
-        location: tool.loc(`${tool.origin.jsonPath}.${field}`),
+        location: tool.loc([field]),
         message:
           `Tool "${tool.name}" has ${hitCount} invisible character(s) in ` +
           `\`${field}\`: ${descriptions.join(', ')}.`,

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { walkSchemaStrings } from '../../../src/rules/shared/schema-walk.js';
+import { formatJsonPath } from '../../../src/core/location.js';
+
+/**
+ * The walker returns path *segments*; rendered to the dotted string form here so
+ * the assertions below stay readable. Every call in this file walks from the
+ * same base, so the helper also drops that repetition.
+ */
+const walk = (schema: unknown) =>
+  walkSchemaStrings(schema, ['inputSchema']).map((h) => ({ path: formatJsonPath(h.path), value: h.value }));
 
 describe('walkSchemaStrings — required cases from the task', () => {
   const schema = {
@@ -10,7 +19,7 @@ describe('walkSchemaStrings — required cases from the task', () => {
     },
   };
 
-  const hits = walkSchemaStrings(schema, 'inputSchema');
+  const hits = walk(schema);
 
   it('finds the description under a nested property', () => {
     expect(hits).toContainEqual({ path: 'inputSchema.properties.path.description', value: 'the path' });
@@ -40,21 +49,21 @@ describe('walkSchemaStrings — text-bearing keys', () => {
     'emits a string value under `%s`',
     (key) => {
       const schema = { type: 'string', [key]: 'free text here' };
-      const hits = walkSchemaStrings(schema, 'inputSchema');
+      const hits = walk(schema);
       expect(hits).toContainEqual({ path: `inputSchema.${key}`, value: 'free text here' });
     },
   );
 
   it('emits every string entry of an `examples` array', () => {
     const schema = { type: 'string', examples: ['one', 'two'] };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toContainEqual({ path: 'inputSchema.examples[0]', value: 'one' });
     expect(hits).toContainEqual({ path: 'inputSchema.examples[1]', value: 'two' });
   });
 
   it('does not emit non-string enum/examples entries, but keeps recursing', () => {
     const schema = { enum: [1, null, true, 'yes'] };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toEqual([{ path: 'inputSchema.enum[3]', value: 'yes' }]);
   });
 });
@@ -68,7 +77,7 @@ describe('walkSchemaStrings — structural keys never leak into text', () => {
       items: { type: 'string' },
       additionalProperties: false,
     };
-    expect(walkSchemaStrings(schema, 'inputSchema')).toEqual([]);
+    expect(walk(schema)).toEqual([]);
   });
 
   it('a property literally named "description" does not turn its whole schema into free text', () => {
@@ -80,7 +89,7 @@ describe('walkSchemaStrings — structural keys never leak into text', () => {
         description: { type: 'string', description: 'the actual field description' },
       },
     };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toEqual([
       { path: 'inputSchema.properties.description.description', value: 'the actual field description' },
     ]);
@@ -100,7 +109,7 @@ describe('walkSchemaStrings — nested composition', () => {
         },
       },
     };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toContainEqual({
       path: 'inputSchema.properties.outer.properties.inner.description',
       value: 'deep text',
@@ -109,7 +118,7 @@ describe('walkSchemaStrings — nested composition', () => {
 
   it('walks into items (single-schema form)', () => {
     const schema = { type: 'array', items: { type: 'string', description: 'item text' } };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toContainEqual({ path: 'inputSchema.items.description', value: 'item text' });
   });
 
@@ -121,7 +130,7 @@ describe('walkSchemaStrings — nested composition', () => {
         { type: 'string', description: 'second item' },
       ],
     };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toContainEqual({ path: 'inputSchema.items[0].description', value: 'first item' });
     expect(hits).toContainEqual({ path: 'inputSchema.items[1].description', value: 'second item' });
   });
@@ -132,7 +141,7 @@ describe('walkSchemaStrings — nested composition', () => {
       oneOf: [{ type: 'string', description: 'b' }],
       allOf: [{ type: 'string', description: 'c' }],
     };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toContainEqual({ path: 'inputSchema.anyOf[0].description', value: 'a' });
     expect(hits).toContainEqual({ path: 'inputSchema.oneOf[0].description', value: 'b' });
     expect(hits).toContainEqual({ path: 'inputSchema.allOf[0].description', value: 'c' });
@@ -144,7 +153,7 @@ describe('walkSchemaStrings — nested composition', () => {
         description: { type: 'string', description: 'a def literally named description' },
       },
     };
-    const hits = walkSchemaStrings(schema, 'inputSchema');
+    const hits = walk(schema);
     expect(hits).toEqual([
       { path: 'inputSchema.$defs.description.description', value: 'a def literally named description' },
     ]);
@@ -155,13 +164,13 @@ describe('walkSchemaStrings — cyclic and pathological input', () => {
   it('does not infinitely recurse on a self-referencing object', () => {
     const cyclic: Record<string, unknown> = { type: 'object' };
     cyclic['properties'] = { self: cyclic };
-    expect(() => walkSchemaStrings(cyclic, 'inputSchema')).not.toThrow();
+    expect(() => walk(cyclic)).not.toThrow();
   });
 
   it('does not infinitely recurse on a self-referencing array', () => {
     const cyclic: unknown[] = ['a'];
     cyclic.push(cyclic);
-    expect(() => walkSchemaStrings({ enum: cyclic }, 'inputSchema')).not.toThrow();
+    expect(() => walk({ enum: cyclic })).not.toThrow();
   });
 
   it('does not throw on a pathologically deep, non-cyclic schema (depth cap)', () => {
@@ -169,7 +178,7 @@ describe('walkSchemaStrings — cyclic and pathological input', () => {
     for (let i = 0; i < 5000; i++) {
       node = { type: 'object', properties: { child: node } };
     }
-    expect(() => walkSchemaStrings(node, 'inputSchema')).not.toThrow();
+    expect(() => walk(node)).not.toThrow();
   });
 });
 
@@ -177,25 +186,25 @@ describe('walkSchemaStrings — inputs that must not throw', () => {
   it.each([null, undefined, 42, true, 'a bare string', ['a', 'b'], []])(
     'handles %j without throwing',
     (v) => {
-      expect(() => walkSchemaStrings(v, 'inputSchema')).not.toThrow();
+      expect(() => walk(v)).not.toThrow();
     },
   );
 
   it('returns [] for null', () => {
-    expect(walkSchemaStrings(null, 'inputSchema')).toEqual([]);
+    expect(walk(null)).toEqual([]);
   });
 
   it('returns [] for a primitive', () => {
-    expect(walkSchemaStrings(42, 'inputSchema')).toEqual([]);
+    expect(walk(42)).toEqual([]);
   });
 
   it('a bare top-level string is not emitted (no text-key context at the root)', () => {
-    expect(walkSchemaStrings('free text', 'inputSchema')).toEqual([]);
+    expect(walk('free text')).toEqual([]);
   });
 
   it('handles null and primitives nested inside an object without throwing', () => {
     const schema = { type: 'string', default: null, title: 3 as unknown as string, description: undefined };
-    expect(() => walkSchemaStrings(schema, 'inputSchema')).not.toThrow();
-    expect(walkSchemaStrings(schema, 'inputSchema')).toEqual([]);
+    expect(() => walk(schema)).not.toThrow();
+    expect(walk(schema)).toEqual([]);
   });
 });

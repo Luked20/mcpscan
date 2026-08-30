@@ -21,7 +21,14 @@
  */
 
 export interface SchemaStringHit {
-  path: string;
+  /**
+   * Path segments relative to the tool, ready to hand to `tool.loc()`.
+   *
+   * Segments rather than a dotted string because a schema property may legally
+   * be named with a dot in it (`properties["my.path"]`, ordinary in path
+   * schemas), and a joined path cannot be split back into the right segments.
+   */
+  path: (string | number)[];
   value: string;
 }
 
@@ -41,11 +48,11 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-export function walkSchemaStrings(node: unknown, basePath: string): SchemaStringHit[] {
+export function walkSchemaStrings(node: unknown, basePath: readonly (string | number)[]): SchemaStringHit[] {
   const out: SchemaStringHit[] = [];
   const seen = new WeakSet<object>();
 
-  function visit(value: unknown, path: string, depth: number, textMode: boolean): void {
+  function visit(value: unknown, path: (string | number)[], depth: number, textMode: boolean): void {
     if (depth > MAX_DEPTH) return;
     if (value === null || value === undefined) return;
 
@@ -60,7 +67,7 @@ export function walkSchemaStrings(node: unknown, basePath: string): SchemaString
     seen.add(obj);
 
     if (Array.isArray(value)) {
-      value.forEach((item, i) => visit(item, `${path}[${i}]`, depth + 1, textMode));
+      value.forEach((item, i) => visit(item, [...path, i], depth + 1, textMode));
       return;
     }
 
@@ -71,7 +78,7 @@ export function walkSchemaStrings(node: unknown, basePath: string): SchemaString
     // `default` legitimately has arbitrary keys).
     if (textMode) {
       for (const [key, v] of Object.entries(record)) {
-        visit(v, `${path}.${key}`, depth + 1, true);
+        visit(v, [...path, key], depth + 1, true);
       }
       return;
     }
@@ -81,15 +88,15 @@ export function walkSchemaStrings(node: unknown, basePath: string): SchemaString
         if (isPlainObject(v) && !seen.has(v)) {
           seen.add(v);
           for (const [name, schemaNode] of Object.entries(v)) {
-            visit(schemaNode, `${path}.${key}.${name}`, depth + 1, false);
+            visit(schemaNode, [...path, key, name], depth + 1, false);
           }
         }
         continue;
       }
-      visit(v, `${path}.${key}`, depth + 1, TEXT_KEYS.has(key));
+      visit(v, [...path, key], depth + 1, TEXT_KEYS.has(key));
     }
   }
 
-  visit(node, basePath, 0, false);
+  visit(node, [...basePath], 0, false);
   return out;
 }

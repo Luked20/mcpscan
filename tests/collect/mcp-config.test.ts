@@ -38,18 +38,35 @@ describe('collectMcpConfig', () => {
 
   it('resolves loc() for a nested env value precisely', () => {
     const files = collectMcpConfig(FILE, text).find((s) => s.name === 'files')!;
-    const loc = files.loc('mcpServers.files.env.TOKEN');
+    const loc = files.loc(['env', 'TOKEN']);
     expect(loc.line).toBe(6);
     expect(loc.file).toBe(FILE);
   });
 
   it('falls back to origin when the jsonPath does not exist', () => {
     const files = collectMcpConfig(FILE, text).find((s) => s.name === 'files')!;
-    expect(files.loc('mcpServers.files.naoExiste')).toEqual(files.origin);
+    expect(files.loc(['naoExiste'])).toEqual(files.origin);
   });
 
   it('returns [] when neither mcpServers nor servers is present', () => {
     expect(collectMcpConfig('x.json', '{"a":1}')).toEqual([]);
+  });
+
+  it('resolves a field of a server whose NAME contains a dot', () => {
+    // Found in the wild, in awslabs/mcp: PyPI-style server names like
+    // `awslabs.mysql-mcp-server` are ordinary. While loc() took a joined
+    // string, `mcpServers.awslabs.mysql-mcp-server.args` re-split into four
+    // segments, resolved to nothing, and the MCP007 finding silently pointed
+    // at the whole server object instead of its args.
+    const src = JSON.stringify({
+      mcpServers: { 'awslabs.mysql-mcp-server': { command: 'uvx', args: ['awslabs.mysql-mcp-server@latest'] } },
+    });
+    const server = collectMcpConfig('x.json', src)[0]!;
+    const loc = server.loc(['args']);
+
+    expect(server.name).toBe('awslabs.mysql-mcp-server');
+    expect(loc).not.toEqual(server.origin);
+    expect(loc.jsonPath).toBe('mcpServers["awslabs.mysql-mcp-server"].args');
   });
 
   it('returns [] on malformed JSON', () => {

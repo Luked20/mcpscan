@@ -144,7 +144,7 @@ Dois detalhes que economizam confusão depois:
 | `types.ts` | **O arquivo mais importante do projeto.** Define `ToolDefinition`, `ServerDefinition`, `SkillDefinition`, `SourceFile`, `Finding`, `Rule`, `ScanTarget`. Tudo passa por aqui. |
 | `engine.ts` | Roda as regras. Entrega a cada uma os sujeitos do tipo que ela pediu, junta os achados, ordena. |
 | `severity.ts` | Ordem das severidades e comparações (`critical` > `high` > …). |
-| `location.ts` | Converte deslocamento em texto para linha e coluna. É o que faz `tools.json:14:32` ser clicável. |
+| `location.ts` | Converte deslocamento em texto para linha e coluna. É o que faz `tools.json:14:32` ser clicável. Também formata o caminho JSON exibido no achado. |
 | `suppress.ts` | Aplica as supressões e reporta as que não funcionaram. |
 | `fingerprint.ts` | A identidade estável de um achado. Usada pelo SARIF e pelo baseline. |
 

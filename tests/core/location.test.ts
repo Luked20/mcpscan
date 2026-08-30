@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createLineIndex, offsetToPosition, makeLocation } from '../../src/core/location.js';
+import { createLineIndex, offsetToPosition, makeLocation , formatJsonPath } from '../../src/core/location.js';
 
 const TEXT = 'linha um\nlinha dois\n\nlinha quatro';
 
@@ -41,5 +41,38 @@ describe('location', () => {
       file: 'a/b.json', line: 2, column: 1, endLine: 2, endColumn: 6,
       jsonPath: 'tools[0].name',
     });
+  });
+});
+
+describe('formatJsonPath', () => {
+  it('renders ordinary keys in dotted form', () => {
+    expect(formatJsonPath(['tools', 0, 'inputSchema', 'properties', 'path']))
+      .toBe('tools[0].inputSchema.properties.path');
+  });
+
+  it('does not prefix the first segment with a dot', () => {
+    expect(formatJsonPath(['mcpServers'])).toBe('mcpServers');
+  });
+
+  it('bracket-quotes a key containing a dot, so the path stays unambiguous', () => {
+    // `mcpServers.awslabs.mysql-mcp-server.args` would read as four keys.
+    expect(formatJsonPath(['mcpServers', 'awslabs.mysql-mcp-server', 'args']))
+      .toBe('mcpServers["awslabs.mysql-mcp-server"].args');
+  });
+
+  it.each([
+    [['a', 'b[0]', 'c'], 'a["b[0]"].c'],
+    [['a', 'say "hi"'], 'a["say \\"hi\\""]'],
+    [['a', ''], 'a[""]'],
+  ])('bracket-quotes %j', (segments, expected) => {
+    expect(formatJsonPath(segments as (string | number)[])).toBe(expected);
+  });
+
+  it('keeps hyphens and underscores in dotted form', () => {
+    expect(formatJsonPath(['mcpServers', 'aws-core', 'args'])).toBe('mcpServers.aws-core.args');
+  });
+
+  it('renders an empty path as an empty string', () => {
+    expect(formatJsonPath([])).toBe('');
   });
 });

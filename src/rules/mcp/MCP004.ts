@@ -104,7 +104,7 @@ function checkTool(tool: ToolDefinition): PartialFinding[] {
     if (CONSTRAINT_KEYS.some((k) => propRaw[k] !== undefined)) continue;
 
     findings.push({
-      location: tool.loc(`${tool.origin.jsonPath}.inputSchema.properties.${name}`),
+      location: tool.loc(['inputSchema', 'properties', name]),
       message:
         `Tool "${tool.name}" has parameter "${name}" typed as an unconstrained string. Nothing ` +
         `in the schema stops it from carrying an absolute path or a "../" traversal outside the ` +

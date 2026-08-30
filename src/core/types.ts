@@ -32,8 +32,21 @@ export interface ToolDefinition {
    */
   serverNameSource?: 'declared' | 'derived';
   origin: SourceLocation;
-  /** Location of an inner field; falls back to `origin` if the path doesn't exist. */
-  loc(jsonPath: string): SourceLocation;
+  /**
+   * Location of an inner field, addressed by **path segments relative to this
+   * subject** — `tool.loc(['inputSchema', 'properties', name])`. Falls back to
+   * `origin` when the path does not exist in the document.
+   *
+   * Segments, not a string, and relative, not absolute, for the same reason:
+   * a dotted path cannot be split back into segments once a key contains a dot
+   * of its own. This used to take a string that callers built by concatenating
+   * `origin.jsonPath`, and a real server named `awslabs.mysql-mcp-server`
+   * produced `mcpServers.awslabs.mysql-mcp-server.args`, which re-parsed into
+   * four segments, resolved to nothing, and silently reported the whole server
+   * object instead of the field. Passing segments makes that unrepresentable,
+   * and passing them relative means a rule never has to know its own base path.
+   */
+  loc(path: readonly (string | number)[]): SourceLocation;
 }
 
 export interface ServerDefinition {
@@ -45,7 +58,8 @@ export interface ServerDefinition {
   url?: string;
   tools: ToolDefinition[];
   origin: SourceLocation;
-  loc(jsonPath: string): SourceLocation;
+  /** Same contract as `ToolDefinition.loc`: segments, relative to this server. */
+  loc(path: readonly (string | number)[]): SourceLocation;
 }
 
 export interface SkillDefinition {

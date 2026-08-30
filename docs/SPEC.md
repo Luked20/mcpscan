@@ -672,6 +672,20 @@ A rule getting *more precise* is a patch because it can only reduce findings —
 
 ### 16.3 Version every wire format from day one
 
+**Worked example, taken while it was still free.** A finding's fingerprint includes its
+`location.jsonPath`. Until now `loc()` took a joined string that callers built by
+concatenating `origin.jsonPath`, and re-splitting it by `.` was wrong for any key that
+contains a dot — `mcpServers.awslabs.mysql-mcp-server.args` parsed as four segments,
+resolved to nothing, and reported the whole server object. Real: found on the first scan of
+`awslabs/mcp`, where PyPI-style server names are ordinary. `loc()` now takes path
+*segments*, which makes the ambiguity unrepresentable.
+
+Fixing it necessarily changes `jsonPath` — and therefore the fingerprint — for exactly the
+findings that were wrong. On a published tool that is a §16.2 major-bump event and a wave of
+reopened GitHub alerts. At version `0.0.0`, with nothing on npm and no baseline in anyone's
+repository, it costs nothing. That asymmetry is the whole reason this section exists: the
+window to fix an identity bug closes the moment the identity becomes someone else's data.
+
 The SARIF fingerprint key is `mcpScan/v1`, not `mcpScan`. That single decision means a future change to fingerprint composition can ship as `mcpScan/v2` alongside `v1`, letting GitHub migrate alerts instead of reopening all of them at once.
 
 Apply the same reasoning to anything else that crosses the boundary: the config file carries a `version` field, and any future baseline file format does too. A wire format without a version field cannot be changed without breaking whoever already wrote one.

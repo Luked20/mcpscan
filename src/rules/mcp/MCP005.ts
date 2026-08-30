@@ -56,7 +56,7 @@ export const MCP005 = {
       if (isConstrained(propRaw)) continue;
 
       findings.push({
-        location: tool.loc(`${tool.origin.jsonPath}.inputSchema.properties.${name}`),
+        location: tool.loc(['inputSchema', 'properties', name]),
         message:
           `Tool "${tool.name}" has parameter "${name}" (${type}) with no constraint on its value. ` +
           `Nothing in the schema stops it from carrying shell metacharacters or an arbitrary command.`,

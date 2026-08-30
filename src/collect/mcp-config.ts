@@ -1,6 +1,6 @@
 import { parseTree, findNodeAtLocation, getNodeValue, type Node } from 'jsonc-parser';
-import { makeLocation, createLineIndex } from '../core/location.js';
-import { parseJsonPath } from './mcp-manifest.js';
+import { makeLocation, createLineIndex, formatJsonPath } from '../core/location.js';
+import { createLocator } from './mcp-manifest.js';
 import type { ServerDefinition, SourceLocation } from '../core/types.js';
 
 /**
@@ -57,14 +57,6 @@ export function collectMcpConfig(file: string, text: string): ServerDefinition[]
   if (!rootKey || !serversNode) return [];
 
   const lineStarts = createLineIndex(text);
-  const locate = (jsonPath: string, fallback: SourceLocation): SourceLocation => {
-    const segments = parseJsonPath(jsonPath);
-    if (!segments) return fallback;
-    const node = findNodeAtLocation(root!, segments);
-    if (!node) return fallback;
-    return makeLocation(file, text, node.offset, node.length, jsonPath, lineStarts);
-  };
-
   const servers: ServerDefinition[] = [];
   for (const property of serversNode.children ?? []) {
     // An object's children are `property` nodes: children[0] = key, children[1] = value.
@@ -75,8 +67,12 @@ export function collectMcpConfig(file: string, text: string): ServerDefinition[]
     const value = getNodeValue(valueNode) as unknown;
     if (!isPlainObject(value)) continue; // a server entry that isn't an object is skipped, not thrown on
 
-    const jsonPath = `${rootKey}.${name}`;
-    const origin = makeLocation(file, text, valueNode.offset, valueNode.length, jsonPath, lineStarts);
+    // Segments, never a joined string: a server named `awslabs.mysql-mcp-server`
+    // is one key, and re-splitting `mcpServers.awslabs.mysql-mcp-server` by dot
+    // would make it two that address nothing. See `ToolDefinition.loc`.
+    const base = [rootKey, name] as const;
+    const origin = makeLocation(file, text, valueNode.offset, valueNode.length, formatJsonPath(base), lineStarts);
+    const locate = createLocator(file, text, root!, lineStarts, base);
 
     const command = typeof value['command'] === 'string' ? value['command'] : undefined;
     const args = Array.isArray(value['args'])
@@ -98,7 +94,7 @@ export function collectMcpConfig(file: string, text: string): ServerDefinition[]
       ...(url !== undefined ? { url } : {}),
       tools: [],
       origin,
-      loc: (p: string) => locate(p, origin),
+      loc: (p) => locate(p, origin),
     });
   }
   return servers;

@@ -1,6 +1,7 @@
 import type { PartialFinding, Rule, ToolDefinition } from '../../core/types.js';
 import { findInjectionPatterns, type InjectionMatch } from '../shared/patterns.js';
 import { walkSchemaStrings } from '../shared/schema-walk.js';
+import { formatJsonPath } from '../../core/location.js';
 
 const EVIDENCE_RADIUS = 60;
 
@@ -32,9 +33,9 @@ export const MCP003 = {
   check(tool: ToolDefinition) {
     if (tool.inputSchema === undefined) return [];
 
-    const basePath = `${tool.origin.jsonPath}.inputSchema`;
-    const prefix = `${tool.origin.jsonPath}.`;
-    const hits = walkSchemaStrings(tool.inputSchema, basePath);
+    // Paths are relative to the tool, so they can be handed straight to
+    // `tool.loc()` and rendered as the field name without stripping a prefix.
+    const hits = walkSchemaStrings(tool.inputSchema, ['inputSchema']);
 
     const findings: PartialFinding[] = [];
     for (const hit of hits) {
@@ -42,9 +43,7 @@ export const MCP003 = {
       if (matches.length === 0) continue;
 
       const kinds = [...new Set(matches.map((m) => m.kind))];
-      // Drop the 'tools[N].' prefix for the human-readable field name — the
-      // jsonPath already carries it, in `location`.
-      const field = hit.path.startsWith(prefix) ? hit.path.slice(prefix.length) : hit.path;
+      const field = formatJsonPath(hit.path);
 
       findings.push({
         location: tool.loc(hit.path),

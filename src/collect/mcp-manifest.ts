@@ -1,34 +1,35 @@
 import { parseTree, findNodeAtLocation, getNodeValue, type Node } from 'jsonc-parser';
 import { basename, dirname, extname } from 'node:path/posix';
-import { makeLocation, createLineIndex } from '../core/location.js';
+import { makeLocation, createLineIndex, formatJsonPath } from '../core/location.js';
 import type { ToolDefinition, SourceLocation } from '../core/types.js';
 
 /**
- * 'tools[0].inputSchema.properties.path' -> ['tools', 0, 'inputSchema', 'properties', 'path']
+ * Builds the `loc()` a collected subject carries.
  *
- * Fails closed: anything that doesn't match in full returns `null`, so the
- * caller falls back to `origin`. Returning a *partial* path was worse than
- * locating nothing — 'tools[0].name[' became ['tools', 0], and the finding showed
- * up at the position of the entire `tools[0]` object stamped with the wrong
- * jsonPath: plausible, authoritative-looking in SARIF, and wrong.
+ * `base` is the subject's own path segments (`['tools', 3]`, or
+ * `['mcpServers', 'awslabs.mysql-mcp-server']`), known here because this is the
+ * code that walked the document to find it. Callers pass only the segments
+ * *below* that, so a rule never restates — or re-parses — a path it did not
+ * build.
  *
- * Known limitation (left unresolved on purpose): a legal JSON key containing a
- * dot — `properties["my.path"]`, common in path schemas — gets split incorrectly
- * and simply fails to resolve, falling back to `origin`.
+ * Fails closed: a path that does not resolve returns `fallback` (the subject's
+ * own location). Pointing at the parent is a coarser answer; pointing at a
+ * position derived from a half-parsed path would be a wrong one, stamped
+ * authoritatively into SARIF.
  */
-export function parseJsonPath(path: string): (string | number)[] | null {
-  if (path === '') return null;
-  const out: (string | number)[] = [];
-  for (const part of path.split('.')) {
-    const m = /^([^[\]]*)((?:\[\d+\])*)$/.exec(part);
-    if (!m) return null;
-    const [, key = '', brackets = ''] = m;
-    if (key) out.push(key);
-    for (const i of brackets.matchAll(/\[(\d+)\]/g)) out.push(Number(i[1]));
-    // An empty segment ('a..b', or '.' itself) produces nothing: invalid path.
-    if (!key && !brackets) return null;
-  }
-  return out.length > 0 ? out : null;
+export function createLocator(
+  file: string,
+  text: string,
+  root: Node,
+  lineStarts: number[],
+  base: readonly (string | number)[],
+): (path: readonly (string | number)[], fallback: SourceLocation) => SourceLocation {
+  return (path, fallback) => {
+    const segments = [...base, ...path];
+    const node = findNodeAtLocation(root, segments as (string | number)[]);
+    if (!node) return fallback;
+    return makeLocation(file, text, node.offset, node.length, formatJsonPath(segments), lineStarts);
+  };
 }
 
 /**
@@ -76,19 +77,14 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
   const { name: serverName, source: serverNameSource } = deriveServerName(file, rootName);
 
   const lineStarts = createLineIndex(text);
-  const locate = (jsonPath: string, fallback: SourceLocation): SourceLocation => {
-    const segments = parseJsonPath(jsonPath);
-    if (!segments) return fallback;
-    const node = findNodeAtLocation(root!, segments);
-    if (!node) return fallback;
-    return makeLocation(file, text, node.offset, node.length, jsonPath, lineStarts);
-  };
 
   const tools: ToolDefinition[] = [];
   (toolsNode.children ?? []).forEach((child, i) => {
     const value = getNodeValue(child) as Record<string, unknown> | undefined;
     if (!value || typeof value !== 'object') return;
-    const origin = makeLocation(file, text, child.offset, child.length, `tools[${i}]`, lineStarts);
+    const base = ['tools', i] as const;
+    const origin = makeLocation(file, text, child.offset, child.length, formatJsonPath(base), lineStarts);
+    const locate = createLocator(file, text, root!, lineStarts, base);
     tools.push({
       name: typeof value['name'] === 'string' ? value['name'] : `<unnamed #${i}>`,
       ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
@@ -96,7 +92,7 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
       serverName,
       serverNameSource,
       origin,
-      loc: (p: string) => locate(p, origin),
+      loc: (p) => locate(p, origin),
     });
   });
   return tools;

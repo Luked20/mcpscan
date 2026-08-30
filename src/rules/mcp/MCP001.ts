@@ -36,7 +36,7 @@ export const MCP001 = {
     const kinds = [...new Set(matches.map((m) => m.kind))];
 
     const finding: PartialFinding = {
-      location: tool.loc(`${tool.origin.jsonPath}.description`),
+      location: tool.loc(['description']),
       message:
         `Tool "${tool.name}" has a model-directed instruction embedded in its description: ` +
         `${kinds.join(', ')}.`,

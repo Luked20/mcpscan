@@ -256,7 +256,7 @@ function detectDirectives(target: ScanTarget): PartialFinding[] {
 
     const names = [...new Set(directed)].sort();
     findings.push({
-      location: a.loc(`${a.origin.jsonPath}.description`),
+      location: a.loc(['description']),
       message:
         `Tool "${a.name}" description gives an imperative instruction naming ` +
         `${names.length === 1 ? 'tool' : 'tools'} ${names.map((n) => `"${n}"`).join(', ')}. ` +
