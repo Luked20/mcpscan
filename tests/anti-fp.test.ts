@@ -153,8 +153,15 @@ describe('anti-false-positive harness — regression corpus (SPEC §8.2)', () =>
     // Hard floors, not the exact current counts: this catches a corpus that got
     // deleted, moved, or excluded by a glob change, without failing every time
     // someone adds a server to it.
+    //
+    // One floor per subject kind, because a rule is only measured by the kind it
+    // consumes: without `sourceFiles` MCP008 has no real input, without
+    // `servers` neither do MCP007 and MCP009, and the zero-high/critical
+    // assertion below would pass for those three by never running them.
     expect(result.stats.tools).toBeGreaterThanOrEqual(20);
     expect(result.stats.skills).toBeGreaterThanOrEqual(10);
+    expect(result.stats.sourceFiles).toBeGreaterThanOrEqual(8);
+    expect(result.stats.servers).toBeGreaterThanOrEqual(5);
   });
 
   it('produces zero high/critical findings from any registered rule', () => {
@@ -201,7 +208,12 @@ describe('anti-false-positive harness — no invisible characters in .ts source 
   const files = execSync('git ls-files', { encoding: 'utf8' })
     .split('\n')
     .map((s) => s.trim())
-    .filter((f) => f.length > 0 && f.endsWith('.ts'));
+    // tests/corpus/ is third-party code captured verbatim as regression data,
+    // not this project's source. Holding someone else's file to this project's
+    // source hygiene would be both wrong and unfixable — the only remedy would
+    // be editing the corpus, which destroys the one property that makes it
+    // worth having.
+    .filter((f) => f.length > 0 && f.endsWith('.ts') && !f.startsWith('tests/corpus/'));
 
   it('found at least one tracked .ts file to check', () => {
     expect(files.length).toBeGreaterThan(0);

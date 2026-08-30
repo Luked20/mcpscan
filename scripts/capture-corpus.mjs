@@ -2,11 +2,18 @@
 /**
  * Regenerates the regression corpus in `tests/corpus/` (docs/SPEC.md §8.2).
  *
- * Two halves, captured two different ways:
+ * Four parts, captured three different ways:
  *  - `servers/` — real `tools/list` output from the official MCP reference
  *    servers, obtained by starting each one and asking it (see below).
  *  - `skills/`  — real `SKILL.md` files from `anthropics/skills`, downloaded
  *    verbatim at a pinned commit. Nothing is executed for these.
+ *  - `source/`  — real MCP server *implementations* (TypeScript), downloaded
+ *    verbatim at a pinned commit. This is what MCP008 gets measured against.
+ *  - `configs/` — real MCP client configuration, for MCP007 and MCP009. Two
+ *    provenances, kept distinct because they are not equally strong evidence:
+ *    a `.mcp.json` actually committed to a public repository, and install
+ *    snippets extracted verbatim from each server's own README — the exact
+ *    JSON the vendor tells users to paste into their client config.
  *
  * The corpus has to be *real* manifests, not manifests I wrote: a fixture I
  * author is unconsciously shaped by the rules I'm testing, which is the exact
@@ -176,12 +183,185 @@ async function captureSkills() {
 `, 'utf8');
 }
 
+/**
+ * The reference-server monorepo, pinned. Everything below that comes from it —
+ * server implementations and README install snippets alike — reads the same
+ * commit, so the source and the config that describes it never drift apart.
+ */
+const SERVERS_REPO = 'modelcontextprotocol/servers';
+const SERVERS_COMMIT = 'cda92bdaacd558192fedf1a60d2bb27510792388';
+
+const raw = (repo, commit, path) => `https://raw.githubusercontent.com/${repo}/${commit}/${path}`;
+
+async function download(url) {
+  const res = await fetch(url, { headers: { 'user-agent': 'mcpscan-corpus' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  return res.text();
+}
+
+/**
+ * Real MCP server implementations — what MCP008 (dangerous execution sinks in
+ * server source) gets measured against. Until this existed, MCP008 was the
+ * only rule with no real-world input at all: its own fixtures are code I wrote
+ * to trip it, which cannot show it firing on code nobody wrote to trip it.
+ *
+ * `filesystem` is deliberately the largest entry. It is a server whose entire
+ * job is touching the filesystem on paths an agent supplies — precisely the
+ * shape a sink rule is most likely to over-match on.
+ */
+const SOURCE_FILES = [
+  {
+    id: 'filesystem',
+    files: [
+      'src/filesystem/index.ts', 'src/filesystem/lib.ts', 'src/filesystem/path-utils.ts',
+      'src/filesystem/path-validation.ts', 'src/filesystem/roots-utils.ts',
+    ],
+  },
+  { id: 'memory', files: ['src/memory/index.ts'] },
+  {
+    id: 'sequential-thinking',
+    files: ['src/sequentialthinking/index.ts', 'src/sequentialthinking/lib.ts', 'src/sequentialthinking/version.ts'],
+  },
+  { id: 'everything', files: ['src/everything/index.ts'] },
+];
+
+async function captureSource() {
+  const outDir = join(ROOT, 'tests', 'corpus', 'source');
+  for (const entry of SOURCE_FILES) {
+    const dir = join(outDir, entry.id);
+    mkdirSync(dir, { recursive: true });
+    for (const path of entry.files) {
+      const text = await download(raw(SERVERS_REPO, SERVERS_COMMIT, path));
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      writeFileSync(join(dir, name), text, 'utf8');
+      console.log(`${entry.id}: ${text.length} bytes -> tests/corpus/source/${entry.id}/${name}`);
+    }
+    writeFileSync(join(dir, 'PROVENANCE.txt'),
+      [
+        SERVERS_REPO,
+        `  commit: ${SERVERS_COMMIT}`,
+        ...entry.files.map((f) => `  file:   ${f}`),
+        `  captured: ${new Date().toISOString().slice(0, 10)} by scripts/capture-corpus.mjs`,
+        '',
+      ].join('\n'), 'utf8');
+  }
+}
+
+/**
+ * Real MCP client configuration — what MCP007 (unpinned provenance) and MCP009
+ * (credentials in config) get measured against.
+ *
+ * Two provenances, and the difference matters enough to keep them labelled:
+ *
+ *  - `file`: a config actually committed to a public repository. The strongest
+ *    evidence there is, and also the rarest — a client config is normally
+ *    per-developer and gitignored, which is why only one entry has it.
+ *  - `readme`: the install snippet published in a server's own README. Not
+ *    found in the wild, but not invented either: it is the exact JSON the
+ *    vendor instructs users to paste into their client config, so it is what
+ *    real config files end up containing.
+ *
+ * A README entry selects its block by a substring rather than an index, so the
+ * choice is legible here and does not silently pick a different block if the
+ * document is reordered.
+ */
+const CONFIGS = [
+  {
+    id: 'mcp-docs', kind: 'file', filename: '.mcp.json',
+    repo: SERVERS_REPO, commit: SERVERS_COMMIT, path: '.mcp.json',
+  },
+  {
+    id: 'filesystem-npx', kind: 'readme', filename: 'claude_desktop_config.json',
+    repo: SERVERS_REPO, commit: SERVERS_COMMIT, path: 'src/filesystem/README.md',
+    select: '"command": "npx"',
+  },
+  {
+    id: 'filesystem-docker', kind: 'readme', filename: 'claude_desktop_config.json',
+    repo: SERVERS_REPO, commit: SERVERS_COMMIT, path: 'src/filesystem/README.md',
+    select: '"command": "docker"',
+  },
+  {
+    id: 'memory', kind: 'readme', filename: 'claude_desktop_config.json',
+    repo: SERVERS_REPO, commit: SERVERS_COMMIT, path: 'src/memory/README.md',
+    select: 'MEMORY_FILE_PATH',
+  },
+  {
+    id: 'everything', kind: 'readme', filename: 'claude_desktop_config.json',
+    repo: SERVERS_REPO, commit: SERVERS_COMMIT, path: 'src/everything/README.md',
+    select: '"command": "npx"',
+  },
+  // Third-party, and included specifically because they carry credentials:
+  // firecrawl puts a placeholder API key in `env`, tavily puts one in the
+  // command's URL. MCP009 must flag neither -- they are placeholders, not keys.
+  {
+    id: 'firecrawl', kind: 'readme', filename: 'claude_desktop_config.json',
+    repo: 'firecrawl/firecrawl-mcp-server', commit: '8c93c5617ed2674e30e8bf828699a59641a3d534',
+    path: 'README.md', select: 'FIRECRAWL_API_KEY',
+  },
+  {
+    id: 'tavily', kind: 'readme', filename: 'claude_desktop_config.json',
+    repo: 'tavily-ai/tavily-mcp', commit: '248dc9e3e385305ad3281120284ff662af4b5940',
+    path: 'README.md', select: 'tavilyApiKey',
+  },
+];
+
+/** Every fenced ```json block in a markdown document that declares MCP servers. */
+function mcpServerBlocks(markdown) {
+  const fence = /```json\n([\s\S]*?)```/g;
+  return [...markdown.matchAll(fence)].map((m) => m[1]).filter((b) => b.includes('"mcpServers"'));
+}
+
+async function captureConfigs() {
+  const outDir = join(ROOT, 'tests', 'corpus', 'configs');
+  for (const entry of CONFIGS) {
+    const url = raw(entry.repo, entry.commit, entry.path);
+    const text = await download(url);
+
+    let content;
+    if (entry.kind === 'file') {
+      content = text;
+    } else {
+      const blocks = mcpServerBlocks(text);
+      const block = blocks.find((b) => b.includes(entry.select));
+      if (block === undefined) {
+        throw new Error(
+          `${entry.id}: no mcpServers block containing ${JSON.stringify(entry.select)} in ${url} ` +
+          `(${blocks.length} block(s) found). The README changed -- re-pin the commit or update the selector.`,
+        );
+      }
+      content = block.trimEnd() + '\n';
+    }
+
+    const dir = join(outDir, entry.id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, entry.filename), content, 'utf8');
+    writeFileSync(join(dir, 'PROVENANCE.txt'),
+      [
+        entry.repo,
+        `  commit: ${entry.commit}`,
+        `  path:   ${entry.path}`,
+        entry.kind === 'file'
+          ? '  source: the file itself, verbatim -- committed to that repository'
+          : `  source: README install snippet, verbatim -- the fenced json block containing ${JSON.stringify(entry.select)}`,
+        `  captured: ${new Date().toISOString().slice(0, 10)} by scripts/capture-corpus.mjs`,
+        '',
+      ].join('\n'), 'utf8');
+    console.log(`${entry.id}: ${content.length} bytes -> tests/corpus/configs/${entry.id}/${entry.filename}`);
+  }
+}
+
 const only = process.argv.slice(2);
 if (only.length === 0 || only.includes('skills')) await captureSkills();
+if (only.length === 0 || only.includes('source')) await captureSource();
+if (only.length === 0 || only.includes('configs')) await captureConfigs();
 
+const GROUPS = ['skills', 'source', 'configs'];
 const selected = only.length > 0 ? SERVERS.filter((s) => only.includes(s.id)) : SERVERS;
-if (only.length > 0 && selected.length === 0 && !only.includes('skills')) {
-  console.error(`no server matched ${JSON.stringify(only)}. Known: ${SERVERS.map((s) => s.id).join(', ')}, skills`);
+if (only.length > 0 && selected.length === 0 && !only.some((o) => GROUPS.includes(o))) {
+  console.error(
+    `nothing matched ${JSON.stringify(only)}. ` +
+    `Known servers: ${SERVERS.map((s) => s.id).join(', ')}. Known groups: ${GROUPS.join(', ')}.`,
+  );
   process.exit(2);
 }
 for (const server of selected) {

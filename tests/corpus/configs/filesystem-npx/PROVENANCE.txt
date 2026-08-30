@@ -1,0 +1,5 @@
+modelcontextprotocol/servers
+  commit: cda92bdaacd558192fedf1a60d2bb27510792388
+  path:   src/filesystem/README.md
+  source: README install snippet, verbatim -- the fenced json block containing "\"command\": \"npx\""
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

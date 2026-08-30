@@ -1,0 +1,6 @@
+modelcontextprotocol/servers
+  commit: cda92bdaacd558192fedf1a60d2bb27510792388
+  file:   src/sequentialthinking/index.ts
+  file:   src/sequentialthinking/lib.ts
+  file:   src/sequentialthinking/version.ts
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

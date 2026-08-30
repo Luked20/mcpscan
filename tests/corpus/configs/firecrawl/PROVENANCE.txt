@@ -1,0 +1,5 @@
+firecrawl/firecrawl-mcp-server
+  commit: 8c93c5617ed2674e30e8bf828699a59641a3d534
+  path:   README.md
+  source: README install snippet, verbatim -- the fenced json block containing "FIRECRAWL_API_KEY"
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

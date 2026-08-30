@@ -1,0 +1,5 @@
+modelcontextprotocol/servers
+  commit: cda92bdaacd558192fedf1a60d2bb27510792388
+  path:   .mcp.json
+  source: the file itself, verbatim -- committed to that repository
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

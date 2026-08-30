@@ -24,6 +24,8 @@ export interface ScanStats {
   /** MCP servers declared in client config files. */
   servers: number;
   skills: number;
+  /** Source files handed to the source rules -- MCP008 has no other input. */
+  sourceFiles: number;
   /** Name-declared files no collector could parse. */
   unreadable: number;
   /** Findings dropped by a well-formed suppression comment. Reported, never silent. */
@@ -38,7 +40,7 @@ export interface ScanResult {
 }
 
 const emptyStats = (): ScanStats =>
-  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, unreadable: 0, suppressed: 0 });
+  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
@@ -88,6 +90,7 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       tools: target.tools.length,
       servers: target.servers.length,
       skills: target.skills.length,
+      sourceFiles: target.sourceFiles.length,
       unreadable: target.unreadable.length,
       suppressed: 0,
     };

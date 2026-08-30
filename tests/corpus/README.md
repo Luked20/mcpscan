@@ -58,6 +58,65 @@ is executed for these. They are long, prose-heavy, and full of shell
 commands, tool references, and imperative instructions — which is precisely
 the input that makes SKILL001–SKILL004 and MCP001 hard to keep precise.
 
+### `source/` — real MCP server implementations
+
+10 TypeScript files (~85 KB) from `modelcontextprotocol/servers`, downloaded
+verbatim at a pinned commit:
+
+| Directory | Files |
+|---|---|
+| `filesystem/` | `index.ts`, `lib.ts`, `path-utils.ts`, `path-validation.ts`, `roots-utils.ts` |
+| `memory/` | `index.ts` |
+| `sequential-thinking/` | `index.ts`, `lib.ts`, `version.ts` |
+| `everything/` | `index.ts` |
+
+This is MCP008's only real-world input. Its own fixtures are code written to
+trip it, which can show it fires when it should and can never show it firing
+on code nobody wrote to trip it. `filesystem` is the largest entry on
+purpose: a server whose entire job is touching the filesystem on paths an
+agent supplies is the shape a sink rule is most likely to over-match on.
+
+These files are excluded from `tsconfig.json` and from the invisible-character
+check in `anti-fp.test.ts`. They are someone else's code, held here as data;
+the only way to make them satisfy this project's source hygiene would be to
+edit them, which destroys the one property that makes them worth having.
+
+### `configs/` — real MCP client configuration
+
+What MCP007 (unpinned provenance) and MCP009 (credentials in config) get
+measured against. Two provenances, kept apart because they are not equally
+strong evidence — each directory's `PROVENANCE.txt` says which it is:
+
+| Entry | Provenance | What it exercises |
+|---|---|---|
+| `mcp-docs/` | **A committed `.mcp.json`**, verbatim, from `modelcontextprotocol/servers` | An `https` remote server |
+| `filesystem-npx/` | README install snippet | `npx -y` with no version pin |
+| `filesystem-docker/` | README install snippet | `docker run` with bind mounts |
+| `memory/` | README install snippet | An `env` block (a path, not a secret) |
+| `everything/` | README install snippet | `npx -y` with no version pin |
+| `firecrawl/` | README install snippet, third-party | A placeholder API key in `env` |
+| `tavily/` | README install snippet, third-party | A placeholder API key inside the command's URL |
+
+Only one entry is a config found in the wild. That is not for lack of
+looking: a client config is normally per-developer and gitignored, and a
+survey of fifteen popular MCP repositories turned up exactly two committed
+`.mcp.json` files, both identical and both a single `https` entry.
+
+The rest are install snippets published in each server's own README —
+extracted verbatim, selected by a substring rather than a position so the
+choice is legible and does not silently move if the document is reordered.
+They were not found in the wild, but they are not invented either: they are
+the exact JSON the vendor instructs users to paste into their client config,
+which is what real config files end up containing.
+
+**This part of the corpus is not finding-free, and should not be.** Five
+`medium` MCP007 findings stand against it, one per vendor snippet that says
+`npx -y <package>` with no version pin. Those are true positives: the
+official install instructions really do fetch whatever the registry serves at
+run time. The contract is zero `high`/`critical`, not zero findings — a
+corpus that had to be silent would be a corpus that could only contain
+uninteresting input.
+
 ## Regenerating
 
 ```bash
@@ -86,10 +145,24 @@ honest outcomes, and the point of the corpus is to force the choice:
 
 ## What is not covered yet
 
-- **MCP client configs.** No `.mcp.json` / `claude_desktop_config.json` from
-  a real repository, so MCP007 and MCP009 are measured only by their own
-  fixtures. The natural next addition.
-- **Server source code.** No real MCP server `.ts`/`.js` implementation, so
-  MCP008 is measured only by its own fixtures.
-- **Servers needing credentials.** Everything here starts with no API key,
-  which biases the set toward small, local, official servers.
+- **Servers needing credentials.** Every captured server starts with no API
+  key, which biases `servers/` toward small, local, official ones. The
+  third-party entries in `configs/` partly offset this, but only for config.
+- **Non-TypeScript server source.** `source/` is all TypeScript, matching
+  MCP008's own scope. A Python server's sinks (`subprocess.run(shell=True)`)
+  are out of scope for the rule and so absent here too.
+- **A genuinely adversarial corpus.** Everything here is known-clean by
+  construction. It measures false positives and says nothing about false
+  negatives — for which the honest answer stays `docs/SPEC.md` §14.
+
+## What it surfaced beyond false positives
+
+Not what this corpus is built to find, but worth recording where it was
+found: **MCP007 does not cover `docker run`.** The `filesystem-docker`
+snippet launches `mcp/filesystem` with no tag, which resolves to `:latest` —
+the same "you get whatever the registry serves today" risk the rule already
+reports for `npx -y`, through a package manager it does not check. Recorded
+as an accepted false negative in `docs/SPEC.md` §7.4 and
+`docs/rules/MCP007.md`; closing it means parsing `docker run` argv well
+enough to tell the image from its flags, which is a rule change, not a corpus
+change.

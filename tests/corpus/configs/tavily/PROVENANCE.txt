@@ -1,0 +1,5 @@
+tavily-ai/tavily-mcp
+  commit: 248dc9e3e385305ad3281120284ff662af4b5940
+  path:   README.md
+  source: README install snippet, verbatim -- the fenced json block containing "tavilyApiKey"
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

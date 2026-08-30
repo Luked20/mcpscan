@@ -1,0 +1,8 @@
+modelcontextprotocol/servers
+  commit: cda92bdaacd558192fedf1a60d2bb27510792388
+  file:   src/filesystem/index.ts
+  file:   src/filesystem/lib.ts
+  file:   src/filesystem/path-utils.ts
+  file:   src/filesystem/path-validation.ts
+  file:   src/filesystem/roots-utils.ts
+  captured: 2026-08-30 by scripts/capture-corpus.mjs

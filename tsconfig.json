@@ -13,5 +13,10 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests"],
+  // tests/corpus/ is third-party code captured verbatim as regression data
+  // (docs/SPEC.md 8.2), not this project's source. It is scanned as text by
+  // the corpus test; typechecking it would mean owning its dependencies and
+  // its compiler settings, which is not what it is here for.
+  "exclude": ["node_modules", "dist", "tests/corpus"]
 }
