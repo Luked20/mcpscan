@@ -57,6 +57,18 @@
       "env": {
         "TOKEN": ""
       }
+    },
+    "placeholderinurl": {
+      "url": "https://mcp.tavily.com/mcp/?tavilyApiKey=<your-api-key>"
+    },
+    "envrefinurl": {
+      "url": "https://mcp.example.com/mcp?key=${TAVILY_KEY}"
+    },
+    "ordinaryargs": {
+      "command": "uvx",
+      "args": [
+        "awslabs.mysql-mcp-server@1.2.3"
+      ]
     }
   }
 }

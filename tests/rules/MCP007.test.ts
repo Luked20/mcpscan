@@ -93,3 +93,69 @@ describe('MCP007 — shape', () => {
     expect(run({ env: { A: 'b' } })).toEqual([]);
   });
 });
+
+describe('MCP007 — Docker images', () => {
+  // Found by scanning awslabs/mcp: the official filesystem server's own Docker
+  // install snippet runs `mcp/filesystem` with no tag, which resolves to
+  // `:latest` -- the same "you get whatever the registry serves today" risk the
+  // rule already reported for `npx -y`, through a package manager it did not
+  // check.
+  const docker = (args: string[]) => MCP007.check(server({ command: 'docker', args }) as never, ctx);
+
+  it('flags an image with no tag', () => {
+    const findings = docker(['run', '-i', '--rm', 'mcp/filesystem', '/projects']);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.evidence).toBe('mcp/filesystem');
+  });
+
+  it('flags an image tagged :latest', () => {
+    expect(docker(['run', '--rm', 'mcp/filesystem:latest'])).toHaveLength(1);
+  });
+
+  it.each([
+    ['a version tag', 'mcp/filesystem:1.4.2'],
+    ['a digest', `mcp/filesystem@sha256:${'a'.repeat(64)}`],
+    ['a registry-qualified version tag', 'ghcr.io/github/github-mcp-server:v0.5.0'],
+  ])('does NOT flag %s', (_label, image) => {
+    expect(docker(['run', '--rm', image])).toEqual([]);
+  });
+
+  it('walks past flags that consume the next token', () => {
+    // Without knowing --mount takes a value, `type=bind,...` would be read as
+    // the image.
+    const findings = docker([
+      'run', '-i', '--rm',
+      '--mount', 'type=bind,src=/Users/u/Desktop,dst=/projects/Desktop',
+      '--mount', 'type=bind,src=/other,dst=/projects/other,ro',
+      'mcp/filesystem', '/projects',
+    ]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.evidence).toBe('mcp/filesystem');
+  });
+
+  it('handles the inline --flag=value form', () => {
+    expect(docker(['run', '--platform=linux/amd64', '--rm', 'mcp/filesystem'])).toHaveLength(1);
+  });
+
+  it('reads a docker invocation written as one command string', () => {
+    const findings = MCP007.check(
+      server({ command: 'docker run -i --rm mcp/filesystem' }) as never, ctx,
+    );
+    expect(findings).toHaveLength(1);
+  });
+
+  it('does NOT fire on a docker subcommand other than run', () => {
+    expect(docker(['build', '-t', 'mine', '.'])).toEqual([]);
+    expect(docker(['compose', 'up'])).toEqual([]);
+  });
+
+  it('does NOT fire when the command is not docker at all', () => {
+    expect(MCP007.check(server({ command: 'node', args: ['./dist/server.js'] }) as never, ctx)).toEqual([]);
+  });
+
+  it('stays silent rather than guessing when no token looks like an image', () => {
+    // An unknown value-taking flag makes its value the candidate; rejecting it
+    // costs a miss, which is the right direction to fail in.
+    expect(docker(['run', '--some-unknown-flag', '/a/path'])).toEqual([]);
+  });
+});

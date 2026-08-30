@@ -52,6 +52,31 @@
         "TOKEN": "${GITHUB_TOKEN}",
         "KEY": "$OPENAI_KEY"
       }
+    },
+    "dockerpinned": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "mcp/filesystem:1.4.2"
+      ]
+    },
+    "dockerdigest": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "ghcr.io/example/mcp@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    "dockerbuild": {
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "mine",
+        "."
+      ]
     }
   }
 }

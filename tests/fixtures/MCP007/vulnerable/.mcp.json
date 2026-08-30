@@ -23,6 +23,26 @@
     },
     "plaintext": {
       "url": "http://internal.example.com/mcp"
+    },
+    "dockerlatest": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--mount",
+        "type=bind,src=/Users/u/Desktop,dst=/projects/Desktop",
+        "mcp/filesystem",
+        "/projects"
+      ]
+    },
+    "dockertaglatest": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "mcp/other:latest"
+      ]
     }
   }
 }

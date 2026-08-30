@@ -26,6 +26,17 @@
       "env": {
         "AWS_ACCESS_KEY_ID": "AKIABBBBBBBBBBBBBBBB"
       }
+    },
+    "remotekeyinurl": {
+      "url": "https://mcp.example.com/mcp?apiKey=sk-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "keyinargs": {
+      "command": "node",
+      "args": [
+        "./remote.js",
+        "--token",
+        "sk-ant-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ]
     }
   }
 }

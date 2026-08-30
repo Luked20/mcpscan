@@ -102,3 +102,66 @@ describe('MCP009 — shape', () => {
     expect(f!.location.jsonPath).toBe('mcpServers.s.env.GITHUB_TOKEN');
   });
 });
+
+describe('MCP009 — credentials outside env', () => {
+  // Until this existed the rule looked only in `env` -- the one place a careful
+  // author already gets right. The tavily config in the regression corpus puts
+  // its key in `command`, as `?tavilyApiKey=…`.
+  const build = (entry: Record<string, unknown>): ServerDefinition => {
+    const text = JSON.stringify({ mcpServers: { s: entry } }, null, 2);
+    const [s] = collectMcpConfig('.mcp.json', text);
+    if (!s) throw new Error('fixture did not produce a server');
+    return s;
+  };
+  const check = (entry: Record<string, unknown>) => MCP009.check(build(entry) as never, ctx);
+
+  it('flags a key in a remote server URL', () => {
+    const findings = check({ url: `https://mcp.example.com/mcp?apiKey=${FAKE.openai}` });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.location.jsonPath).toBe('mcpServers.s.url');
+  });
+
+  it('flags a key inside the command string', () => {
+    const findings = check({ command: `npx -y mcp-remote https://x.dev/mcp?key=${FAKE.anthropic}` });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.location.jsonPath).toBe('mcpServers.s.command');
+  });
+
+  it('flags a key passed as an argument, and points at that argument', () => {
+    const findings = check({ command: 'node', args: ['./s.js', '--token', FAKE.github] });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.location.jsonPath).toBe('mcpServers.s.args[2]');
+  });
+
+  it('redacts the credential everywhere it reports one', () => {
+    for (const entry of [
+      { url: `https://x.dev/mcp?key=${FAKE.openai}` },
+      { command: 'node', args: [FAKE.openai] },
+    ]) {
+      const evidence = check(entry)[0]!.evidence!;
+      expect(evidence).not.toContain(FAKE.openai);
+      expect(evidence).toContain('…');
+    }
+  });
+
+  it.each([
+    ['a placeholder', 'https://mcp.tavily.com/mcp/?tavilyApiKey=<your-api-key>'],
+    ['an env reference', 'https://mcp.example.com/mcp?key=${TAVILY_KEY}'],
+    ['no credential at all', 'https://mcp.example.com/mcp'],
+  ])('does NOT flag %s in a URL', (_label, url) => {
+    expect(check({ url })).toEqual([]);
+  });
+
+  it('does NOT flag an ordinary command line', () => {
+    expect(check({ command: 'uvx', args: ['awslabs.mysql-mcp-server@latest'] })).toEqual([]);
+  });
+
+  it('reports env, url and args independently', () => {
+    const findings = check({
+      command: 'node',
+      args: [FAKE.github],
+      env: { OPENAI_API_KEY: FAKE.openai },
+    });
+    expect(findings).toHaveLength(2);
+  });
+});

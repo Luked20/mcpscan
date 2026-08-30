@@ -29,6 +29,30 @@ function redact(value: string): string {
   return value.length <= 8 ? '***' : `${value.slice(0, 4)}…${value.slice(-2)}`;
 }
 
+const REMEDIATION =
+  'Replace the literal with a reference such as `${API_KEY}` and supply the secret from the ' +
+  'environment or a secret manager. Then revoke and reissue this credential — moving it now ' +
+  "does not remove it from the repository's git history, where it has been readable since " +
+  'the commit that introduced it.';
+
+/**
+ * Finds a credential embedded anywhere inside a longer string — a URL query
+ * parameter, a `--api-key` argument.
+ *
+ * The `${VAR}` and placeholder guards the `env` path applies to a whole value
+ * are neither possible nor needed here: what is checked is the matched
+ * substring, and every pattern in `CREDENTIALS` requires a distinctive real
+ * prefix (`sk-ant-`, `ghp_`, `AKIA`). `?key=<your-api-key>` and
+ * `?key=${TAVILY_KEY}` match none of them, which is the right answer for both.
+ */
+function findEmbedded(text: string): { label: string; value: string } | undefined {
+  for (const [label, pattern] of CREDENTIALS) {
+    const m = pattern.exec(text);
+    if (m) return { label, value: m[0] };
+  }
+  return undefined;
+}
+
 export const MCP009: Rule = {
   id: 'MCP009',
   title: 'Credential hardcoded in MCP server configuration',
@@ -57,6 +81,45 @@ export const MCP009: Rule = {
           `does not remove it from the repository's git history, where it has been readable since ` +
           `the commit that introduced it.`,
         evidence: `${key}=${redact(value)}`,
+      });
+    }
+
+    // `env` is the tidy place to put a secret, not the only one. A remote
+    // server's key often rides in the URL's query string and a stdio server's
+    // in an argument -- the tavily config in the regression corpus puts one in
+    // `command` itself, as `?tavilyApiKey=…`. Checking only `env` meant looking
+    // in the one place a careful author had already got right.
+    if (server.url !== undefined) {
+      const hit = findEmbedded(server.url);
+      if (hit) {
+        findings.push({
+          location: server.loc(['url']),
+          message:
+            `The URL of server "${server.name}" carries ${hit.label} in it. A URL travels into ` +
+            'client logs, proxy logs and error reports, so a credential in one leaks further than ' +
+            'a config file alone does.',
+          remediation: REMEDIATION,
+          evidence: server.url.replace(hit.value, redact(hit.value)).slice(0, 120),
+        });
+      }
+    }
+
+    const argv: Array<{ path: (string | number)[]; label: string; text: string }> = [
+      ...(server.command !== undefined ? [{ path: ['command'], label: 'command', text: server.command }] : []),
+      ...(server.args ?? []).map((a, i) => ({ path: ['args', i], label: `argument ${i}`, text: a })),
+    ];
+
+    for (const { path, label, text } of argv) {
+      const hit = findEmbedded(text);
+      if (!hit) continue;
+      findings.push({
+        location: server.loc(path),
+        message:
+          `The ${label} of server "${server.name}" contains ${hit.label} written literally into ` +
+          'the config file. A command line is also visible to every process on the machine that ' +
+          'can read the process table.',
+        remediation: REMEDIATION,
+        evidence: text.replace(hit.value, redact(hit.value)).slice(0, 120),
       });
     }
 
