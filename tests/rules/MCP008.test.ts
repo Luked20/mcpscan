@@ -103,3 +103,42 @@ describe('MCP008 — location', () => {
     expect(findings[0]!.location.line).toBe(3);
   });
 });
+
+describe('MCP008 — comments are not code', () => {
+  const check = (ts: string) => MCP008.check(collectSource('server.ts', ts));
+
+  it.each([
+    ['a line comment', '// never call eval(x) here\nconst a = 1;'],
+    ['a trailing line comment', 'const a = 1; // we removed the eval(...) call'],
+    ['a block comment', '/* do not use new Function(body) */\nconst a = 1;'],
+    ['a jsdoc block', '/**\n * Avoid child_process.exec(`ls ${p}`).\n */\nconst a = 1;'],
+  ])('does NOT flag a sink named in %s', (_label, code) => {
+    expect(check(code)).toEqual([]);
+  });
+
+  it('still flags a real call on the line after a comment mentioning it', () => {
+    expect(check('// we used to call eval() here\neval(x);')).toHaveLength(1);
+  });
+
+  it('keeps line numbers correct across a masked block comment', () => {
+    const code = ['/*', ' * mentions eval() and new Function()', ' */', '', 'eval(userInput);'].join('\n');
+    const findings = check(code);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.location.line).toBe(5);
+  });
+
+  it('does not mistake // inside a string for a comment', () => {
+    // Masking `https://…` as a comment would blank the rest of the line and
+    // hide the real sink after it.
+    expect(check('const url = "https://x"; eval(userInput);')).toHaveLength(1);
+  });
+
+  it('still reports the real argument as evidence', () => {
+    const findings = check('execSync(`ls ${dir}`);');
+    expect(findings[0]!.evidence).toContain('ls ${dir}');
+  });
+
+  it('does not throw on an unterminated block comment', () => {
+    expect(() => check('/* unterminated\neval(x);')).not.toThrow();
+  });
+});

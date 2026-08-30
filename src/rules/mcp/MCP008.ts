@@ -17,6 +17,71 @@ import type { PartialFinding, Rule, SourceFile } from '../../core/types.js';
  * this implies.
  */
 
+/**
+ * Blanks out `//` and block-comment bodies, keeping every other character —
+ * and every newline — exactly where it was, so an offset found in the masked
+ * text addresses the same position in the original.
+ *
+ * A comment that mentions a sink is the realistic noise source for this rule.
+ * MCP010's first run over `awslabs/mcp` produced exactly one finding across
+ * 1161 real Python files, and it was a comment saying the author had *avoided*
+ * `exec`. There is no reason to expect TypeScript to differ.
+ *
+ * ## Why only comments, and not string contents
+ *
+ * MCP010 masks strings too, because Python's are easy to delimit. JavaScript's
+ * are not, and the obstacle is the regex literal: `/["']/` contains a quote
+ * that starts no string, and telling a regex literal from a division needs the
+ * parser this rule deliberately does not have. Guess wrong and the mask
+ * swallows real code, which turns into a silent false negative — strictly
+ * worse than the noise it was meant to remove.
+ *
+ * So string tracking here exists only to avoid mistaking a `//` inside a
+ * string (`"https://example.com"`) for a comment. When that tracking is fooled
+ * by a regex literal, the failure mode is *under*-masking: a comment goes
+ * unmasked and the rule behaves exactly as it did before. Never over-masking.
+ */
+function maskComments(text: string): string {
+  const out = text.split('');
+  const blank = (from: number, to: number): void => {
+    for (let i = from; i < to && i < out.length; i++) {
+      if (out[i] !== '\n') out[i] = ' ';
+    }
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+
+    if (ch === '/' && text[i + 1] === '/') {
+      const nl = text.indexOf('\n', i);
+      const end = nl < 0 ? text.length : nl;
+      blank(i, end);
+      i = end;
+      continue;
+    }
+
+    if (ch === '/' && text[i + 1] === '*') {
+      const close = text.indexOf('*/', i + 2);
+      const end = close < 0 ? text.length : close + 2;
+      blank(i, end);
+      i = end - 1;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === '`') {
+      for (let j = i + 1; j < text.length; j++) {
+        if (text[j] === '\\') { j += 1; continue; }
+        if (text[j] === ch) { i = j; break; }
+        // A quoted string cannot span a newline; a template literal can. Bounding
+        // the non-template case keeps a stray quote from swallowing the file.
+        if (ch !== '`' && text[j] === '\n') { i = j - 1; break; }
+      }
+    }
+  }
+
+  return out.join('');
+}
+
 const EVIDENCE_MAX = 160;
 
 function truncate(s: string): string {
@@ -131,9 +196,9 @@ function classifyArg(raw: string): ArgShape {
   return 'other';
 }
 
-function findEvalSinks(text: string): SinkMatch[] {
+function findEvalSinks(masked: string): SinkMatch[] {
   const out: SinkMatch[] = [];
-  for (const m of text.matchAll(EVAL_RE)) {
+  for (const m of masked.matchAll(EVAL_RE)) {
     out.push({
       index: m.index,
       length: m[0].length,
@@ -147,9 +212,9 @@ function findEvalSinks(text: string): SinkMatch[] {
   return out;
 }
 
-function findNewFunctionSinks(text: string): SinkMatch[] {
+function findNewFunctionSinks(masked: string): SinkMatch[] {
   const out: SinkMatch[] = [];
-  for (const m of text.matchAll(NEW_FUNCTION_RE)) {
+  for (const m of masked.matchAll(NEW_FUNCTION_RE)) {
     out.push({
       index: m.index,
       length: m[0].length,
@@ -163,12 +228,14 @@ function findNewFunctionSinks(text: string): SinkMatch[] {
   return out;
 }
 
-function findExecSinks(text: string, re: RegExp, fnLabel: string): SinkMatch[] {
+function findExecSinks(masked: string, original: string, re: RegExp, fnLabel: string): SinkMatch[] {
   const out: SinkMatch[] = [];
-  for (const m of text.matchAll(re)) {
+  for (const m of masked.matchAll(re)) {
     const openParenIndex = m.index + m[0].length - 1; // m[0] ends in '('
-    const arg = extractFirstArg(text, openParenIndex);
-    if (arg === null) continue;
+    // Shape is read from the masked text, evidence from the source as written.
+    const arg = extractFirstArg(masked, openParenIndex);
+    const argRaw = extractFirstArg(original, openParenIndex);
+    if (arg === null || argRaw === null) continue;
     const shape = classifyArg(arg);
     if (shape !== 'template' && shape !== 'concat') continue; // plain literal / other: not this rule's concern
 
@@ -183,7 +250,7 @@ function findExecSinks(text: string, re: RegExp, fnLabel: string): SinkMatch[] {
         'Pass the command and its arguments separately to `execFile`/`spawn` (no shell, no string ' +
         'building) instead of interpolating values into a shell command string. If a shell is genuinely ' +
         'required, validate every interpolated value against a strict allowlist first.',
-      evidence: truncate(`${m[0]}${arg.trim().slice(0, 80)}`),
+      evidence: truncate(`${m[0]}${argRaw.trim().slice(0, 80)}`),
     });
   }
   return out;
@@ -199,11 +266,13 @@ export const MCP008 = {
   check(sourceFile: SourceFile) {
     if (sourceFile.language !== 'ts' && sourceFile.language !== 'js') return [];
 
+    // Comments are blanked first: a sink named in prose is not a sink.
+    const masked = maskComments(sourceFile.text);
     const matches: SinkMatch[] = [
-      ...findEvalSinks(sourceFile.text),
-      ...findNewFunctionSinks(sourceFile.text),
-      ...findExecSinks(sourceFile.text, EXEC_QUALIFIED_RE, 'child_process.exec'),
-      ...findExecSinks(sourceFile.text, EXEC_SYNC_RE, 'execSync'),
+      ...findEvalSinks(masked),
+      ...findNewFunctionSinks(masked),
+      ...findExecSinks(masked, sourceFile.text, EXEC_QUALIFIED_RE, 'child_process.exec'),
+      ...findExecSinks(masked, sourceFile.text, EXEC_SYNC_RE, 'execSync'),
     ];
     if (matches.length === 0) return [];
 
