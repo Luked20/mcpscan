@@ -22,6 +22,15 @@ export interface ToolDefinition {
   description?: string;
   inputSchema?: unknown;
   serverName?: string;
+  /**
+   * Whether `serverName` is a claim the manifest author actually made (a root-level
+   * `"name"` field) or a guess this scanner made up from the containing directory.
+   * MCP006 detection 1 (tool-name collision across servers) must only compare
+   * `'declared'` names — two directories that happen to sit next to each other are
+   * not evidence that any client loads both, so a `'derived'` name can never be
+   * used to claim two tools belong to different, competing servers.
+   */
+  serverNameSource?: 'declared' | 'derived';
   origin: SourceLocation;
   /** Location of an inner field; falls back to `origin` if the path doesn't exist. */
   loc(jsonPath: string): SourceLocation;

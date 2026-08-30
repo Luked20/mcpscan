@@ -4,7 +4,7 @@ import { basename, dirname, extname, relative, resolve } from 'node:path';
 import { collectManifest } from './mcp-manifest.js';
 import { collectMcpConfig } from './mcp-config.js';
 import { collectSkill } from './skill-md.js';
-import { collectSource } from './source.js';
+import { collectSource, isTestFile } from './source.js';
 import type {
   ScanTarget, ServerDefinition, SkillDefinition, SourceFile, ToolDefinition, UnreadableFile,
 } from '../core/types.js';
@@ -70,6 +70,12 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
 
     if (SOURCE_EXTENSIONS.has(extname(file).toLowerCase())) {
+      // Test code never runs in front of an agent -- a sink (or any future
+      // source-rule pattern) inside it is not deployed code, so it is not a
+      // finding. Skipped here, at the collector, so every source rule
+      // inherits the exclusion rather than each reimplementing it. See
+      // isTestFile()'s doc comment in source.ts.
+      if (isTestFile(rel)) continue;
       // Source text has no structure a collector could reject -- nothing here
       // to fail closed on, so there's no unreadable case (see source.ts).
       sourceFiles.push(collectSource(rel, text));

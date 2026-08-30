@@ -1,35 +1,60 @@
-import type { PartialFinding, Rule, ScanTarget, ToolDefinition } from '../../core/types.js';
+import type { PartialFinding, Rule, ScanTarget, ServerDefinition, ToolDefinition } from '../../core/types.js';
 
 /**
  * MCP006 — tool shadowing (docs/SPEC.md §7 catalog, §7.3 risk-surface family).
  *
- * The first `appliesTo: 'target'` rule: both detections need to see the
+ * The first `appliesTo: 'target'` rule: every detection needs to see the
  * *whole* scan, not one subject at a time — a name collision only exists in
  * relation to every other tool, and a directive in a description only means
  * something in relation to the tool it names.
  *
- * Two independent detections, described separately below. Either can fire on
- * its own; a target with both produces findings from both.
+ * Three independent detections, described separately below (1, 1b, 2). Any
+ * can fire on its own; a target that trips more than one produces findings
+ * from each.
  */
 
 /**
  * Detection 1 — the same tool `name` declared by two or more different
- * `serverName`s. Which implementation gets called then depends on client
- * load order, not on anything the user chose.
+ * servers. Which implementation gets called then depends on client load
+ * order, not on anything the user chose.
+ *
+ * Requires evidence that the colliding servers are actually co-loaded — a
+ * name collision between tools nobody ever loads together is not a finding,
+ * it's a coincidence. The evidence this scanner can see: the manifest
+ * *explicitly declares* its own server name (a root-level `"name"` field).
+ * That is a claim the author made. A name this scanner *derived* from the
+ * containing directory (`tools.json` living in `server-a/`) is a guess this
+ * scanner made, not evidence of anything — two unrelated fixture directories
+ * that both happen to expose `read_file` prove nothing about what any real
+ * client loads. See `ToolDefinition.serverNameSource` in `core/types.ts`.
+ *
+ * "Different servers" is measured by *manifest file*, not by the declared
+ * name string. Two tool entries from the very same file are one manifest
+ * listing a tool twice — a duplicate-listing problem, not shadowing, and
+ * excluded regardless of what its `name` field says. Two entries from two
+ * *different* files are two separate deployments even when both files
+ * explicitly declared the identical name — and picking the same identity is
+ * itself part of what makes that collision worth flagging: an agent has no
+ * way to tell the two apart either.
  *
  * Must NOT fire when:
- *  - the duplicates all share one `serverName` (the same tool listed twice in
- *    one manifest is a different, unrelated problem — not shadowing), or
  *  - `serverName` is missing on a tool — a tool with no known server can't be
- *    compared to anything, so it's simply excluded from consideration.
+ *    compared to anything, so it's simply excluded from consideration,
+ *  - `serverNameSource` is `'derived'` on a tool — see above. A derived name
+ *    is excluded even when it happens to collide with a *declared* name on
+ *    the other side: this scanner cannot tell whether the directory-derived
+ *    "server" is the same deployment as the one that declared its name, so
+ *    treating that pairing as a collision would be exactly the kind of guess
+ *    this restriction exists to rule out, or
+ *  - every declared occurrence of the name comes from one manifest file.
  *
- * Deduplicated by name: a collision among three servers produces one finding
+ * Deduplicated by file: a collision among three servers produces one finding
  * naming all three, never three findings.
  */
 function detectNameCollisions(target: ScanTarget): PartialFinding[] {
   const byName = new Map<string, ToolDefinition[]>();
   for (const tool of target.tools) {
-    if (tool.serverName === undefined) continue;
+    if (tool.serverNameSource !== 'declared') continue;
     const existing = byName.get(tool.name);
     if (existing) existing.push(tool);
     else byName.set(tool.name, [tool]);
@@ -43,26 +68,102 @@ function detectNameCollisions(target: ScanTarget): PartialFinding[] {
 
   for (const name of names) {
     const tools = byName.get(name)!;
-    const servers = [...new Set(tools.map((t) => t.serverName!))].sort();
-    if (servers.length < 2) continue; // one server (or none informative) -> not a collision
 
-    // Deterministic choice of "one of the colliding tools" for the location.
-    const sorted = [...tools].sort((a, b) =>
-      a.origin.file === b.origin.file
-        ? a.origin.line - b.origin.line
-        : a.origin.file < b.origin.file ? -1 : 1);
-    const first = sorted[0]!;
+    // One entry per distinct manifest file (first tool wins as that file's
+    // representative — only its serverName and location end up in the finding).
+    const byFile = new Map<string, ToolDefinition>();
+    for (const tool of tools) {
+      if (!byFile.has(tool.origin.file)) byFile.set(tool.origin.file, tool);
+    }
+    if (byFile.size < 2) continue; // one manifest file -> not a collision
+
+    const entries = [...byFile.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+    const labels = entries.map(([, tool]) => tool.serverName!);
+    const first = entries[0]![1];
 
     findings.push({
       location: first.origin,
       message:
-        `Tool "${name}" is declared by ${servers.length} different servers (${servers.join(', ')}). ` +
+        `Tool "${name}" is declared by ${entries.length} different servers (${labels.join(', ')}). ` +
         `Which implementation an agent calls depends on client load order, not on anything the user chose.`,
       remediation:
         'Rename the tool in one of the servers so names are unique across everything the client can ' +
         'load, or remove the redundant server from the client configuration.',
-      evidence: `"${name}" declared by: ${servers.join(', ')}`,
+      evidence: `"${name}" declared by: ${labels.join(', ')}`,
     });
+  }
+  return findings;
+}
+
+/**
+ * Detection 1b — two *server entries in the same MCP client config file*
+ * (`.mcp.json` / `mcp.json` / `claude_desktop_config.json`) that launch the
+ * identical command. Entries in one such file really are loaded together by
+ * that client — the strongest co-loading evidence available — so two names
+ * that both resolve to the same `command` + `args` are the same server code
+ * running twice under different names, which is a real collision worth
+ * flagging even though `ServerDefinition.tools` is always empty (this
+ * scanner never executes a server to ask it for its tool list).
+ *
+ * Scoped to `stdio` servers with a `command`: `http`/`sse` servers are
+ * compared by `url` instead, since `command` is absent for those. A server
+ * with neither (`transport: 'unknown'`) has nothing reliable to key on and
+ * is excluded rather than guessed at.
+ *
+ * Grouped by `origin.file` first — two servers with the same command in two
+ * *different* config files is not evidence of anything; nothing says both
+ * files are ever loaded by the same client.
+ */
+function serverIdentity(server: ServerDefinition): string | undefined {
+  if (server.transport === 'stdio' && server.command !== undefined) {
+    return `stdio:${server.command} ${(server.args ?? []).join(' ')}`;
+  }
+  if ((server.transport === 'http' || server.transport === 'sse') && server.url !== undefined) {
+    return `${server.transport}:${server.url}`;
+  }
+  return undefined;
+}
+
+function detectConfigServerCollisions(target: ScanTarget): PartialFinding[] {
+  const byFile = new Map<string, ServerDefinition[]>();
+  for (const server of target.servers) {
+    const existing = byFile.get(server.origin.file);
+    if (existing) existing.push(server);
+    else byFile.set(server.origin.file, [server]);
+  }
+
+  const findings: PartialFinding[] = [];
+  for (const file of [...byFile.keys()].sort()) {
+    const byIdentity = new Map<string, ServerDefinition[]>();
+    for (const server of byFile.get(file)!) {
+      const identity = serverIdentity(server);
+      if (identity === undefined) continue;
+      const existing = byIdentity.get(identity);
+      if (existing) existing.push(server);
+      else byIdentity.set(identity, [server]);
+    }
+
+    for (const identity of [...byIdentity.keys()].sort()) {
+      const servers = byIdentity.get(identity)!;
+      const names = [...new Set(servers.map((s) => s.name))].sort();
+      if (names.length < 2) continue; // one name (config re-declared it once) -> not a collision
+
+      const sorted = [...servers].sort((a, b) => a.origin.line - b.origin.line);
+      const first = sorted[0]!;
+      const command = identity.slice(identity.indexOf(':') + 1);
+
+      findings.push({
+        location: first.origin,
+        message:
+          `${file} declares ${names.length} servers (${names.join(', ')}) that all run "${command}". ` +
+          `A client loading this config runs the same server code under multiple names — any tool name ` +
+          `collision between them is real, not incidental.`,
+        remediation:
+          'Remove the redundant entry, or confirm the two names are intentionally separate deployments ' +
+          'of the same package (e.g. pointed at different data) rather than an accidental duplicate.',
+        evidence: `${names.join(', ')} -> "${command}"`,
+      });
+    }
   }
   return findings;
 }
@@ -179,6 +280,6 @@ export const MCP006 = {
   owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'target',
   check(target: ScanTarget) {
-    return [...detectNameCollisions(target), ...detectDirectives(target)];
+    return [...detectNameCollisions(target), ...detectConfigServerCollisions(target), ...detectDirectives(target)];
   },
 } satisfies Rule;

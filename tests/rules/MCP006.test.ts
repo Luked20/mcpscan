@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { collectManifest } from '../../src/collect/mcp-manifest.js';
+import { collectMcpConfig } from '../../src/collect/mcp-config.js';
 import { MCP006 } from '../../src/rules/mcp/MCP006.js';
-import type { PartialFinding, ScanTarget, SourceLocation, ToolDefinition } from '../../src/core/types.js';
+import type {
+  PartialFinding, ScanTarget, ServerDefinition, SourceLocation, ToolDefinition,
+} from '../../src/core/types.js';
 
 function loadFixture(kind: 'vulnerable' | 'clean', server: 'server-a' | 'server-b'): ToolDefinition[] {
   const f = `tests/fixtures/MCP006/${kind}/${server}/tools.json`;
@@ -17,6 +20,10 @@ interface ToolOpts {
   name: string;
   description?: string;
   serverName?: string;
+  /** Defaults to 'declared' when `serverName` is set — most tests here are exercising the
+   *  collision mechanism itself, not the declared/derived distinction (that gets its own
+   *  describe block below, built on `collectManifest` directly). */
+  serverNameSource?: 'declared' | 'derived';
   file?: string;
 }
 
@@ -26,17 +33,20 @@ function makeTool(opts: ToolOpts): ToolDefinition {
   return {
     name: opts.name,
     ...(opts.description !== undefined ? { description: opts.description } : {}),
-    ...(opts.serverName !== undefined ? { serverName: opts.serverName } : {}),
+    ...(opts.serverName !== undefined
+      ? { serverName: opts.serverName, serverNameSource: opts.serverNameSource ?? 'declared' }
+      : {}),
     origin: loc,
     loc: () => loc,
   };
 }
 
-function makeTarget(tools: ToolDefinition[]): ScanTarget {
-  return { root: '.', servers: [], tools, skills: [], sourceFiles: [], unreadable: [], filesExamined: tools.length };
+function makeTarget(tools: ToolDefinition[], servers: ServerDefinition[] = []): ScanTarget {
+  return { root: '.', servers, tools, skills: [], sourceFiles: [], unreadable: [], filesExamined: tools.length };
 }
 
-const check = (tools: ToolDefinition[]): PartialFinding[] => MCP006.check(makeTarget(tools));
+const check = (tools: ToolDefinition[], servers: ServerDefinition[] = []): PartialFinding[] =>
+  MCP006.check(makeTarget(tools, servers));
 
 describe('MCP006 — vulnerable fixture', () => {
   it('detects at least one finding across the two-server fixture', () => {
@@ -63,8 +73,8 @@ describe('MCP006 — clean fixture', () => {
 describe('MCP006 — detection 1: name collision across servers', () => {
   it('fires when the same tool name is declared by two different servers', () => {
     const tools = [
-      makeTool({ name: 'search', serverName: 'server-a' }),
-      makeTool({ name: 'search', serverName: 'server-b' }),
+      makeTool({ name: 'search', serverName: 'server-a', file: 'server-a/tools.json' }),
+      makeTool({ name: 'search', serverName: 'server-b', file: 'server-b/tools.json' }),
     ];
     const findings = check(tools);
     expect(findings).toHaveLength(1);
@@ -72,7 +82,7 @@ describe('MCP006 — detection 1: name collision across servers', () => {
     expect(findings[0]!.message).toContain('server-b');
   });
 
-  it('does NOT fire when the duplicates share one serverName', () => {
+  it('does NOT fire when the duplicates come from one manifest file', () => {
     const tools = [
       makeTool({ name: 'search', serverName: 'server-a' }),
       makeTool({ name: 'search', serverName: 'server-a' }),
@@ -82,8 +92,8 @@ describe('MCP006 — detection 1: name collision across servers', () => {
 
   it('does NOT fire when serverName is missing on one side', () => {
     const tools = [
-      makeTool({ name: 'search', serverName: 'server-a' }),
-      makeTool({ name: 'search' }), // no serverName
+      makeTool({ name: 'search', serverName: 'server-a', file: 'server-a/tools.json' }),
+      makeTool({ name: 'search', file: 'server-b/tools.json' }), // no serverName
     ];
     expect(check(tools)).toEqual([]);
   });
@@ -95,9 +105,9 @@ describe('MCP006 — detection 1: name collision across servers', () => {
 
   it('deduplicates: a collision among three servers produces one finding naming all three', () => {
     const tools = [
-      makeTool({ name: 'search', serverName: 'server-a' }),
-      makeTool({ name: 'search', serverName: 'server-b' }),
-      makeTool({ name: 'search', serverName: 'server-c' }),
+      makeTool({ name: 'search', serverName: 'server-a', file: 'server-a/tools.json' }),
+      makeTool({ name: 'search', serverName: 'server-b', file: 'server-b/tools.json' }),
+      makeTool({ name: 'search', serverName: 'server-c', file: 'server-c/tools.json' }),
     ];
     const findings = check(tools);
     expect(findings).toHaveLength(1);
@@ -108,10 +118,118 @@ describe('MCP006 — detection 1: name collision across servers', () => {
 
   it('a distinct tool name per server is not a collision', () => {
     const tools = [
-      makeTool({ name: 'search_a', serverName: 'server-a' }),
-      makeTool({ name: 'search_b', serverName: 'server-b' }),
+      makeTool({ name: 'search_a', serverName: 'server-a', file: 'server-a/tools.json' }),
+      makeTool({ name: 'search_b', serverName: 'server-b', file: 'server-b/tools.json' }),
     ];
     expect(check(tools)).toEqual([]);
+  });
+});
+
+describe('MCP006 — detection 1: declared vs. derived server names', () => {
+  it('does NOT fire when both serverNames are derived (directory fallback), even on a real name collision', () => {
+    // Mirrors the real self-scan bug: two unrelated fixture directories, neither manifest
+    // declares a root "name", both happen to expose "read_file". A directory is not a
+    // deployment, so this must not be reported as tool shadowing.
+    const toolsA = collectManifest(
+      'dir-one/tools.json',
+      JSON.stringify({ tools: [{ name: 'read_file', description: 'Reads a file.' }] }),
+    );
+    const toolsB = collectManifest(
+      'dir-two/tools.json',
+      JSON.stringify({ tools: [{ name: 'read_file', description: 'Reads a file too.' }] }),
+    );
+    expect(toolsA[0]!.serverNameSource).toBe('derived');
+    expect(toolsB[0]!.serverNameSource).toBe('derived');
+    expect(check([...toolsA, ...toolsB])).toEqual([]);
+  });
+
+  it('fires when both manifests explicitly declare the same colliding "name"', () => {
+    const toolsA = collectManifest(
+      'dir-one/tools.json',
+      JSON.stringify({ name: 'files', tools: [{ name: 'read_file' }] }),
+    );
+    const toolsB = collectManifest(
+      'dir-two/tools.json',
+      JSON.stringify({ name: 'files', tools: [{ name: 'read_file' }] }),
+    );
+    expect(toolsA[0]!.serverNameSource).toBe('declared');
+    const findings = check([...toolsA, ...toolsB]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('read_file');
+  });
+
+  it('does NOT fire when one side declares a name and the other is only derived', () => {
+    const toolsA = collectManifest(
+      'dir-one/tools.json',
+      JSON.stringify({ name: 'files', tools: [{ name: 'read_file' }] }),
+    );
+    const toolsB = collectManifest(
+      'dir-two/tools.json',
+      JSON.stringify({ tools: [{ name: 'read_file' }] }), // no root "name" -> derived
+    );
+    expect(check([...toolsA, ...toolsB])).toEqual([]);
+  });
+
+  it('fires when two explicitly-named servers collide, even with a third derived-name server present', () => {
+    const declaredA = makeTool({
+      name: 'read_file', serverName: 'files', serverNameSource: 'declared', file: 'dir-one/tools.json',
+    });
+    const declaredB = makeTool({
+      name: 'read_file', serverName: 'files', serverNameSource: 'declared', file: 'dir-two/tools.json',
+    });
+    const derivedC = makeTool({
+      name: 'read_file', serverName: 'some/random/dir', serverNameSource: 'derived', file: 'some/random/dir/tools.json',
+    });
+    const findings = check([declaredA, declaredB, derivedC]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('files');
+    expect(findings[0]!.message).not.toContain('some/random/dir');
+  });
+});
+
+describe('MCP006 — detection 1b: colliding server entries in one client config file', () => {
+  it('fires when two entries in one .mcp.json run the identical command', () => {
+    const config = JSON.stringify({
+      mcpServers: {
+        'files-a': { command: 'npx', args: ['-y', 'files-mcp@latest'] },
+        'files-b': { command: 'npx', args: ['-y', 'files-mcp@latest'] },
+      },
+    });
+    const servers = collectMcpConfig('.mcp.json', config);
+    const findings = check([], servers);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('files-a');
+    expect(findings[0]!.message).toContain('files-b');
+  });
+
+  it('does NOT fire when the two entries run different commands', () => {
+    const config = JSON.stringify({
+      mcpServers: {
+        'files-a': { command: 'npx', args: ['-y', 'files-mcp@latest'] },
+        'git-a': { command: 'npx', args: ['-y', 'git-mcp@latest'] },
+      },
+    });
+    const servers = collectMcpConfig('.mcp.json', config);
+    expect(check([], servers)).toEqual([]);
+  });
+
+  it('does NOT fire across two different config files, even with an identical command', () => {
+    const configA = JSON.stringify({ mcpServers: { 'files-a': { command: 'npx', args: ['-y', 'files-mcp@latest'] } } });
+    const configB = JSON.stringify({ mcpServers: { 'files-b': { command: 'npx', args: ['-y', 'files-mcp@latest'] } } });
+    const servers = [...collectMcpConfig('a/.mcp.json', configA), ...collectMcpConfig('b/.mcp.json', configB)];
+    expect(check([], servers)).toEqual([]);
+  });
+
+  it('fires for two http servers in one config file with the identical url', () => {
+    const config = JSON.stringify({
+      mcpServers: {
+        remote1: { url: 'https://example.com/mcp' },
+        remote2: { url: 'https://example.com/mcp' },
+      },
+    });
+    const servers = collectMcpConfig('.mcp.json', config);
+    const findings = check([], servers);
+    expect(findings).toHaveLength(1);
   });
 });
 

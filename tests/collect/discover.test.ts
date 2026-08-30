@@ -59,4 +59,13 @@ describe('discover', () => {
     const t = await discover('tests/fixtures/MCP008/vulnerable');
     expect(t.unreadable).toEqual([]);
   });
+
+  it('skips test files when collecting source, at the collector level', async () => {
+    // A sink inside a test file never runs in front of an agent -- it is not
+    // deployed code. tests/fixtures/source-exclusion/ has the identical sink in
+    // src/handler.ts (must be found) and four excluded variants (must not):
+    // *.test.ts basename, and tests/, __tests__/, spec/ directory segments.
+    const t = await discover('tests/fixtures/source-exclusion');
+    expect(t.sourceFiles.map((f) => f.file).sort()).toEqual(['src/handler.ts']);
+  });
 });

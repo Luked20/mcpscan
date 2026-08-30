@@ -36,20 +36,27 @@ export function parseJsonPath(path: string): (string | number)[] | null {
  * two different servers" apart from "the same tool listed twice in one file".
  *
  * Rule: if the manifest declares a root-level string `name` (the convention
- * an MCP server's own manifest uses to name itself), that wins. Otherwise the
- * *containing directory* of the file stands in for the server — manifests are
+ * an MCP server's own manifest uses to name itself), that wins, and
+ * `serverNameSource` is `'declared'`. Otherwise the *containing directory* of
+ * the file stands in for the server, purely for display — manifests are
  * conventionally laid out one directory per server (`server-a/tools.json`,
  * `server-b/tools.json`). When the file sits at the scan root (no containing
  * directory to use — `dirname` is `'.'`, including the single-file-scan case
  * where `file` is just a basename), fall back to the file's own basename with
  * its extension stripped, so `tools.json` at the root still yields a stable,
  * non-empty name (`"tools"`) rather than the meaningless `'.'`.
+ *
+ * A *derived* name is a guess this scanner made, not a claim the manifest
+ * author made: two unrelated directories that both happen to contain a
+ * `tools.json` are not evidence that any client loads both together. MCP006
+ * detection 1 relies on `serverNameSource` to ignore derived names entirely —
+ * see the field's doc comment on `ToolDefinition` in `core/types.ts`.
  */
-function deriveServerName(file: string, rootName: string | undefined): string {
-  if (rootName !== undefined && rootName.length > 0) return rootName;
+function deriveServerName(file: string, rootName: string | undefined): { name: string; source: 'declared' | 'derived' } {
+  if (rootName !== undefined && rootName.length > 0) return { name: rootName, source: 'declared' };
   const dir = dirname(file);
-  if (dir !== '.') return dir;
-  return basename(file, extname(file));
+  if (dir !== '.') return { name: dir, source: 'derived' };
+  return { name: basename(file, extname(file)), source: 'derived' };
 }
 
 export function collectManifest(file: string, text: string): ToolDefinition[] {
@@ -66,7 +73,7 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
 
   const nameNode = findNodeAtLocation(root, ['name']);
   const rootName = nameNode && nameNode.type === 'string' ? (getNodeValue(nameNode) as string) : undefined;
-  const serverName = deriveServerName(file, rootName);
+  const { name: serverName, source: serverNameSource } = deriveServerName(file, rootName);
 
   const lineStarts = createLineIndex(text);
   const locate = (jsonPath: string, fallback: SourceLocation): SourceLocation => {
@@ -87,6 +94,7 @@ export function collectManifest(file: string, text: string): ToolDefinition[] {
       ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
       ...(value['inputSchema'] !== undefined ? { inputSchema: value['inputSchema'] } : {}),
       serverName,
+      serverNameSource,
       origin,
       loc: (p: string) => locate(p, origin),
     });
