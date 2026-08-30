@@ -184,6 +184,13 @@ mcpscan · 12 file(s) scanned · 3 with tools · 41 tool(s) · 2 server(s) · 0 
 
 To silence a rule everywhere instead of line by line, use `--disable <id>`.
 
+## Working on mcpscan
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the map of the repository: what
+each folder does and how the pieces connect. [docs/SPEC.md](docs/SPEC.md) has
+the reasoning behind the decisions, and [docs/rules/](docs/rules/README.md) has
+a page per rule.
+
 ## Limitations
 
 Read this before you trust a clean scan.
