@@ -52,9 +52,19 @@ get their real schemas is to ask them, which is what
 
 ### `skills/` — real `SKILL.md` files
 
-All 19 skills from [`anthropics/skills`](https://github.com/anthropics/skills),
-downloaded verbatim at a pinned commit (see `skills/PROVENANCE.txt`). Nothing
-is executed for these. They are long, prose-heavy, and full of shell
+28 skills from two vendors, downloaded verbatim at pinned commits (see
+`skills/PROVENANCE.txt`). Nothing is executed for these.
+
+| Source | Count | Prefix |
+|---|---|---|
+| [`anthropics/skills`](https://github.com/anthropics/skills) | 19 | none |
+| [`mondaycom/mcp`](https://github.com/mondaycom/mcp) (the `monday-crm` plugin) | 9 | `monday-` |
+
+Two vendors on purpose. The anthropics set is large but written by one
+organisation in one house style, which is a narrow sample for prose-heavy
+rules. The monday set is a second voice, and it earned its place immediately:
+**all five** SKILL003 findings on it were false, one detector reading markdown
+blockquotes and `<placeholder>` syntax as shell redirects. They are long, prose-heavy, and full of shell
 commands, tool references, and imperative instructions — which is precisely
 the input that makes SKILL001–SKILL004 and MCP001 hard to keep precise.
 

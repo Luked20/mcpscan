@@ -61,8 +61,25 @@ Every capability the body actually uses — running `git` (`Bash`), reading `pac
 - **A capability that's already covered by a broader scope.** `Bash(ls *)` in the declaration counts as `Bash` being declared, full stop. A skill that declares `Bash(ls *)` and then runs `curl` in the body is **not** flagged, because `Bash` is on record. This is deliberate under-detection (`docs/SPEC.md` §7.4 / §15): scoping a `Bash` grant to a specific command is a bash-level concern this rule doesn't model, and erring toward the false negative here is the safer failure mode for a self-serve scanner.
 - **A command word that only appears in prose**, e.g. "This skill replaces the old curl-based workflow." Nothing runs unless it's inside a fenced code block or inline code span.
 - **A command word inside a JSON or YAML example fence**, e.g. a config sample with a field literally named `curl`. Detection requires the line to *start* with the command word (the shape of an actual invocation), not just contain it.
-- **`>` used as a markdown quote marker or in a prose comparison** (`count > threshold`), when it isn't inside a fenced code block or inline code span.
+- **`>` that is not a redirect**, even inside a fenced code block. Three shapes are excluded, and all three came from a scan of monday's MCP plugin where **every one of the five** SKILL003 findings was this detector reading prose as a shell redirect:
+
+  | Line | What the `>` actually is |
+  |---|---|
+  | `> Action 1: Notify [deal owner]` | a markdown blockquote |
+  | `- Active pipeline: $<total>K across <N> deals` | the close of a `<total>` placeholder |
+  | `Synced <N> meetings to <M> deals.` | the same, twice |
+
+  So: a line starting with `>` is a quote; a `>` that closes a `<…>` with no whitespace inside is a placeholder or an HTML tag; and the redirect target must be a **path or a file with an extension** (`out/log`, `report.txt`, `/dev/null`), not a bare word. `> phone` and `> Action` are not files.
+
+  Every `>` on a line is checked, not just the first — on `echo "synced <N> items" > out/sync.log` the first closes a placeholder and the second is real.
 - **The body of the skill for anything other than these three signals.** Hidden instructions are SKILL001's job; description-field injection is SKILL002's.
+
+## Known accepted false negative
+
+- **A redirect to a bare word** — `echo done > outfile`, with no extension and no
+  path separator. Requiring one is what makes "writes a file" mean writing a
+  file rather than matching any `>` followed by a word, and the alternative was
+  five false positives out of five on the first real skill set this rule met.
 
 ## How to fix
 

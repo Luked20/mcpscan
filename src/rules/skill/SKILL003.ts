@@ -58,14 +58,55 @@ const READ_CMD_RE = /^(?:\$\s*)?(?:sudo\s+)?(?:cat|less|head|tail)\s+\S/;
 
 /**
  * A shell redirect to what looks like a filename: not `>=` (comparison), not
- * `->` (an arrow, e.g. a Rust/TS return-type marker), and the target has to
- * contain a letter and only filename-shaped characters — so `x > 5` inside a
- * fenced code example doesn't read as "writes a file".
+ * `->` (an arrow, e.g. a Rust/TS return-type marker).
+ *
+ * Global, because the first `>` on a line is often not the interesting one —
+ * see the placeholder guard below.
  */
-const WRITE_REDIRECT_RE = /(?<![=-])>{1,2}(?!=)\s*([^\s>]+)/;
+const WRITE_REDIRECT_RE = /(?<![=-])>{1,2}(?!=)\s*([^\s>]+)/g;
 
-function looksLikeFilename(target: string): boolean {
-  return /^[.\w/-]+$/.test(target) && /[A-Za-z]/.test(target);
+/**
+ * A redirect target is a path or a file with an extension — `report.txt`,
+ * `out/log`, `/dev/null`. A bare word is not.
+ *
+ * This condition, and the two guards below it, come from a scan of monday's
+ * MCP plugin, where **all five** SKILL003 findings were this detector reading
+ * prose as a redirect. Every one was a bare word after a `>` that was not a
+ * redirect at all:
+ *
+ *   `> Action 1: Notify [deal owner]`   -> a markdown blockquote
+ *   `- Active pipeline: $<total>K ...`  -> the close of a `<total>` placeholder
+ *   `Synced <N> meetings to <M> deals.` -> same, twice
+ *
+ * Requiring a `/` or an extension is what makes "writes a file" mean writing a
+ * file. The cost is a miss on `echo x > outfile`, a target with neither —
+ * recorded as an accepted false negative in docs/rules/SKILL003.md, and the
+ * direction this project prefers to fail in.
+ */
+function looksLikeWriteTarget(target: string): boolean {
+  if (!/^[.\w/-]+$/.test(target)) return false;
+  if (!/[A-Za-z]/.test(target)) return false;
+  return target.includes('/') || /\.[A-Za-z0-9]+$/.test(target);
+}
+
+/**
+ * True when this `>` closes an angle-bracketed placeholder or tag — `<N>`,
+ * `<total>`, `<url>`, `</div>`. Scans back for a `<` with no whitespace and no
+ * other `>` in between, which is what a placeholder looks like and what a
+ * redirect never does.
+ */
+function closesAngleBracket(line: string, gtIndex: number): boolean {
+  for (let i = gtIndex - 1; i >= 0; i--) {
+    const ch = line[i]!;
+    if (ch === '<') return true;
+    if (ch === '>' || /\s/.test(ch)) return false;
+  }
+  return false;
+}
+
+/** A markdown blockquote line. `>` there is quoting, never redirection. */
+function isBlockquote(line: string): boolean {
+  return line.startsWith('>');
 }
 
 type Detection = { matched: true; excerpt: string } | { matched: false };
@@ -94,9 +135,14 @@ function detectFileWrite(segments: readonly CodeSegment[]): Detection {
   for (const seg of segments) {
     for (const rawLine of seg.content.split('\n')) {
       const line = rawLine.trim();
-      if (line.length === 0) continue;
-      const m = WRITE_REDIRECT_RE.exec(line);
-      if (m && looksLikeFilename(m[1] ?? '')) return { matched: true, excerpt: line };
+      if (line.length === 0 || isBlockquote(line)) continue;
+
+      // Every `>` on the line, not just the first: on `Synced <N> items to
+      // out/log` the first one closes a placeholder and the second is real.
+      for (const m of line.matchAll(WRITE_REDIRECT_RE)) {
+        if (closesAngleBracket(line, m.index)) continue;
+        if (looksLikeWriteTarget(m[1] ?? '')) return { matched: true, excerpt: line };
+      }
     }
   }
   return { matched: false };

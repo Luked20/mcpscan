@@ -61,3 +61,22 @@ tools:
 If the tag already exists, delete it locally with `git tag -d <name>` before
 retrying. This skill never pushes automatically — pushing is a separate,
 explicit step the user runs themselves.
+
+## Report template
+
+These lines come from monday's MCP plugin, where every one of them was read as
+a shell redirect. `<...>` is placeholder syntax and `>` at the start of a line
+is a quote; neither writes anything.
+
+```
+> When: Stage → Won
+> Action 1: Notify [deal owner]
+> Action 2: Move item to Closed Won group
+```
+
+```
+- Active pipeline: $<total>K across <N> deals
+- Closing this week: <N> deals, $<value>K
+Synced <N> meetings to <M> deals. <K> unmatched, <L> contacts created.
+<count> example items added per board.
+```

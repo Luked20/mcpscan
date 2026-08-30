@@ -213,3 +213,46 @@ describe('SKILL003 — cross-rule precision', () => {
     });
   }
 });
+
+describe('SKILL003 — a ">" is not always a redirect', () => {
+  // Every one of these is a line from monday's MCP plugin, where all five
+  // SKILL003 findings were this detector reading prose as a shell redirect.
+  const withTools = (body: string) =>
+    ['---', 'name: s', 'description: Use when testing.', 'allowed-tools: [Read]', '---', body].join('\n');
+
+  const check = (body: string) => {
+    const skill = collectSkill('s/SKILL.md', withTools(body));
+    if (!skill) throw new Error('fixture did not produce a skill');
+    return SKILL003.check(skill);
+  };
+
+  const fenced = (line: string) => ['```', line, '```'].join('\n');
+
+  it.each([
+    ['a markdown blockquote', '> Action 1: Notify [deal owner]'],
+    ['a placeholder closing', '- Active pipeline: $<total>K across <N> deals'],
+    ['several placeholders', 'Synced <N> meetings to <M> deals. <K> unmatched.'],
+    ['a placeholder at line start', '<count> example items added per board'],
+    ['an html tag', '</div> wrapper closed'],
+    ['a bare word after a comparison-ish arrow', 'if size > limit then stop'],
+  ])('does NOT read %s as writing a file', (_label, line) => {
+    expect(check(fenced(line))).toEqual([]);
+  });
+
+  it.each([
+    ['an extension', 'echo done >> progress.log'],
+    ['a path', 'echo done > out/progress'],
+    ['an absolute path', 'echo done > /tmp/report.txt'],
+    ['a relative path', 'cat x > ../notes.md'],
+  ])('still reads a redirect to %s as writing a file', (_label, line) => {
+    const findings = check(fenced(line));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('writes a file');
+  });
+
+  it('finds a real redirect that follows a placeholder on the same line', () => {
+    // The first `>` closes <N>; the second is the one that matters.
+    const findings = check(fenced('echo "synced <N> items" > out/sync.log'));
+    expect(findings).toHaveLength(1);
+  });
+});

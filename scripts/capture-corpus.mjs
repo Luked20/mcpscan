@@ -149,38 +149,63 @@ async function capture({ id, pkg, args }) {
 }
 
 /**
- * Agent skills, pinned to an exact commit for the same reason the server
- * packages are pinned to an exact version: the corpus must not change under
- * the test without someone deciding that it should.
+ * Agent skills, pinned to exact commits for the same reason the server packages
+ * are pinned to exact versions: the corpus must not change under the test
+ * without someone deciding that it should.
+ *
+ * Two vendors on purpose. The anthropics set is large but written by one
+ * organisation in one house style, which is a narrow sample for prose-heavy
+ * rules. The monday set is a second voice — and it earned its place: all five
+ * SKILL003 findings on it were false, one detector reading markdown
+ * blockquotes and `<placeholder>` syntax as shell redirects.
  */
-const SKILLS_REPO = 'anthropics/skills';
-const SKILLS_COMMIT = '3b3fad96af16a10759d930941b4520ba0c40edae';
-const SKILLS = [
-  'academy-guide', 'algorithmic-art', 'brand-guidelines', 'canvas-design', 'claude-api',
-  'discernment-nudge', 'doc-coauthoring', 'docx', 'frontend-design', 'internal-comms',
-  'mcp-builder', 'pdf', 'pptx', 'skill-creator', 'slack-gif-creator', 'theme-factory',
-  'web-artifacts-builder', 'webapp-testing', 'xlsx',
+const SKILL_SOURCES = [
+  {
+    prefix: "",
+    repo: "anthropics/skills",
+    commit: "3b3fad96af16a10759d930941b4520ba0c40edae",
+    path: (id) => `skills/${id}/SKILL.md`,
+    ids: [
+      "academy-guide", "algorithmic-art", "brand-guidelines", "canvas-design", "claude-api",
+      "discernment-nudge", "doc-coauthoring", "docx", "frontend-design", "internal-comms",
+      "mcp-builder", "pdf", "pptx", "skill-creator", "slack-gif-creator", "theme-factory",
+      "web-artifacts-builder", "webapp-testing", "xlsx",
+    ],
+  },
+  {
+    prefix: "monday-",
+    repo: "mondaycom/mcp",
+    commit: "8ca3cbaa4c8f3094e8da7676f3335735c065548a",
+    path: (id) => `plugins/monday-crm/skills/${id}/SKILL.md`,
+    ids: [
+      "activity-insights", "automate-crm", "daily-briefing", "data-cleanup", "forecast",
+      "log-activity", "meeting-to-deal", "run-sequence", "workspace-builder",
+    ],
+  },
 ];
 
 async function captureSkills() {
-  const outDir = join(ROOT, 'tests', 'corpus', 'skills');
-  for (const id of SKILLS) {
-    const url = `https://raw.githubusercontent.com/${SKILLS_REPO}/${SKILLS_COMMIT}/skills/${id}/SKILL.md`;
-    const res = await fetch(url, { headers: { 'user-agent': 'mcpscan-corpus' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    const text = await res.text();
-    const dir = join(outDir, id);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'SKILL.md'), text, 'utf8');
-    console.log(`${id}: ${text.length} bytes -> tests/corpus/skills/${id}/SKILL.md`);
+  const outDir = join(ROOT, "tests", "corpus", "skills");
+  const provenance = [];
+
+  for (const source of SKILL_SOURCES) {
+    for (const id of source.ids) {
+      const text = await download(raw(source.repo, source.commit, source.path(id)));
+      const dir = join(outDir, source.prefix + id);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "SKILL.md"), text, "utf8");
+      console.log(`${source.prefix}${id}: ${text.length} bytes -> tests/corpus/skills/${source.prefix}${id}/SKILL.md`);
+    }
+    provenance.push(
+      source.repo,
+      `  commit: ${source.commit}`,
+      `  skills: ${source.ids.map((i) => source.prefix + i).join(", ")}`,
+      "",
+    );
   }
-  writeFileSync(join(outDir, 'PROVENANCE.txt'),
-    `${SKILLS_REPO}
-  commit: ${SKILLS_COMMIT}
-  skills: ${SKILLS.join(', ')}
-` +
-    `  captured: ${new Date().toISOString().slice(0, 10)} by scripts/capture-corpus.mjs
-`, 'utf8');
+
+  provenance.push(`captured: ${new Date().toISOString().slice(0, 10)} by scripts/capture-corpus.mjs`, "");
+  writeFileSync(join(outDir, 'PROVENANCE.txt'), provenance.join('\n'), 'utf8');
 }
 
 /**
