@@ -1055,6 +1055,75 @@ SQL built by concatenation. All are technical, all are statically visible, and
 several already have sink patterns in MCP008 and MCP010 that a shell-language
 equivalent could reuse.
 
+### 8.12 Destruction is a goal, not a mechanism
+
+§8.11 named `destruction` the next target. Going straight from that to a rule
+would have repeated the mistake this project keeps catching itself in: a family
+name is a description of *outcome*, and a pattern can only match *mechanism*.
+Opening the 22 payloads gives four mechanisms with nothing in common but the
+result.
+
+Each was measured on its own, against the same 106 real skills:
+
+| Mechanism | Payloads | Caught | False positives | Verdict |
+|---|---|---|---|---|
+| **Shell destructive command in a bundled script** | 8 | **8 / 22** | **0 / 125 scripts** | **shipped as SKILL006** |
+| Natural-language deletion, no code | 6 | 10 / 22 | 15 / 106 skills | rejected |
+| Git destructive command in prose | 4 | 4 / 22 | 2 / 106 skills | rejected |
+| Python deletion in a bundled script | 4 | 4 / 22 | 2 / 106 skills | rejected |
+
+Note that the natural-language signal has the **highest recall of the four** and
+is the one that must not ship. It fires on `monday-data-cleanup` ("clean up the
+data"), `google-calendar-skill` ("Delete Event"), and five AWS DSQL skills whose
+tool list reads "delete, list, cluster info". A ranking by recall alone would
+have picked exactly the wrong row.
+
+#### 8.12.1 The rejection worth remembering
+
+Git looked like the ideal signal: `git push --force`, `git reset --hard`,
+`git clean -fd` are unambiguous, technical, and impossible to write by accident.
+Both false positives explain why it still fails:
+
+* the `git` skill, documenting `git reset --hard` as part of teaching git;
+* a `safety-protocol` skill quoting `git push --force` — almost certainly in a
+  list of things *not* to do.
+
+**A pattern cannot tell "do this" from "never do this."** Every rule in this
+scanner that reads prose has this ceiling, and the git case is the cleanest
+statement of it, because the command itself could not be more specific and the
+signal is still unusable.
+
+#### 8.12.2 What shipped
+
+SKILL006 flags a `rm` with a recursive flag aimed at a **wildcard, `.`, `..` or
+`/`**, or a `find … -delete`, in a shell script the skill ships. The target
+carries the precision, not the flag: `rm -rf build/intermediate` is routine and
+stays silent.
+
+Two exclusions came from observed benign code rather than from imagination:
+
+* `find … -type l -delete` — stripping symlinks from untrusted input, which the
+  official `docx` skill does before unpacking a `.docx`. Defensive, not
+  destructive.
+* the skill **body** is not read at all. Extending the same two patterns there
+  gains no detections and costs one false positive: the `docx` skill again,
+  documenting that same symlink strip.
+
+| | before | after |
+|---|---|---|
+| SKILL-INJECT, all 152 | 31 (20.4%) | **39 (25.7%)** |
+| destruction family | 0 / 22 | **8 / 22** |
+| real skills and repositories | 0 findings | **0 findings** |
+
+#### 8.12.3 A weak spot in the precision claim, stated plainly
+
+Only **8** shell scripts are bundled by the 106 real skills. That is far too thin
+a base to claim precision from, so the signal was measured against all 117 shell
+scripts in the seven real MCP repositories on hand as well — 125 in total, zero
+matches. A repository's build script is not a skill's helper, so this is a proxy
+population rather than the real one. It is recorded here because quoting "0 out
+of 8" would have been the flattering number and the useless one.
+
 ---
 
 ## 9. CLI

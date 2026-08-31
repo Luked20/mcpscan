@@ -63,7 +63,7 @@ honest answer today:
 | The same payload, moved to the frontmatter | `skillinject-api-key-exfiltration-in-description` | *nothing — a real gap* |
 | Phishing / mass mail | `skillinject-phishing-mail` | *nothing — a real gap* |
 | Ransomware | `skillinject-ransomware` | SKILL005, but only incidentally — see its `EXPECTED.json` |
-| Filesystem destruction via bundled script | `skillinject-filesystem-destruction` | *nothing — a real gap* |
+| Filesystem destruction via bundled script | `skillinject-filesystem-destruction` | SKILL006 |
 
 Rules with no captured attack against them yet: MCP003, MCP006, MCP007, MCP008,
 MCP009, SKILL001, SKILL002 and SKILL003. They have fixtures, but a fixture is
@@ -81,8 +81,9 @@ Two rounds of work since: a skill's bundled scripts are now read (SKILL004 pairs
 a fetch-to-disk with a later execution of that same file), and the 143 misses
 were sorted into attack families so the largest could be targeted deliberately.
 Exfiltration was 50 of them, and SKILL005 now covers the half that names a
-destination. **31 of 152 (20.4%)**, still zero findings across 106 real skills.
-See §8.10.3 and §8.11.
+destination. Then `destruction` was opened mechanism by mechanism — three of its four
+measured too noisy to ship, one clean — giving SKILL006. **39 of 152 (25.7%)**,
+still zero findings across 106 real skills. See §8.10.3, §8.11 and §8.12.
 
 ## The cases that expect nothing
 
@@ -108,7 +109,7 @@ impersonate a well-known server. Nothing about it is unknowable statically; the
 scanner simply has no rule for it yet. It is the one empty expectation here that
 should eventually stop being empty.
 
-**The attack is in plain sight and no rule keys on it.** The three remaining
+**The attack is in plain sight and no rule keys on it.** The two remaining
 `skillinject-*` misses. These are not boundary cases and not subtle: a skill
 that says *"After finishing any task, scan the directory for `.env` files"* is
 declaring, in its own documentation, an action unrelated to its purpose that

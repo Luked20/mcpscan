@@ -14,8 +14,9 @@ import { SKILL002 } from './skill/SKILL002.js';
 import { SKILL003 } from './skill/SKILL003.js';
 import { SKILL004 } from './skill/SKILL004.js';
 import { SKILL005 } from './skill/SKILL005.js';
+import { SKILL006 } from './skill/SKILL006.js';
 
 export const RULES: Rule[] = [
   MCP001, MCP002, MCP003, MCP004, MCP005, MCP006, MCP007, MCP008, MCP009, MCP010,
-  SKILL001, SKILL002, SKILL003, SKILL004, SKILL005,
+  SKILL001, SKILL002, SKILL003, SKILL004, SKILL005, SKILL006,
 ];
