@@ -2,18 +2,9 @@ node_modules
 dist
 *.sarif
 
-# Only the per-rule pages are published. They are product documentation and
-# every finding's helpUri links to them (see src/core/help.ts).
-#
-# Everything else under docs/ is the internal record — the design spec, the
-# architecture notes, planning documents — and is deliberately excluded.
-# Written as "ignore all, un-ignore rules/" so that a new internal document
-# dropped in docs/ is excluded by default rather than published by accident.
+# Only docs/rules/ is published — it is product documentation, and every
+# finding's helpUri links to it (see src/core/help.ts). Everything else under
+# docs/ is internal. Written as "ignore all, un-ignore rules/" so a new
+# internal document is excluded by default rather than published by accident.
 docs/*
 !docs/rules/
-
-# Assistant instructions and project strategy notes: local only.
-CLAUDE.MD
-CLAUDE.md
-
-.gitignore
