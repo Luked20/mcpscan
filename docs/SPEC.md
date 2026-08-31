@@ -286,6 +286,7 @@ These are known misses. All fail in the safe direction — silence rather than n
 | SKILL003 | A redirect whose target is a bare word — `echo done > outfile`, no extension, no path separator | Requiring a path or an extension is what makes "writes a file" mean writing a file. Measured against monday's MCP plugin, the alternative was five false positives out of five: markdown blockquotes (`> Action 1: …`) and placeholder syntax (`<total>K`) read as redirects. See `docs/rules/SKILL003.md`. |
 | MCP009 | A credential in a config field other than `env`, `url`, `command` or `args` | Those four are where secrets actually get written. Anything else — a nested vendor-specific block, say — is not searched. |
 | MCP006 (detection 1b) | Two servers that resolve to the same package but are declared in **two different** config files | Only entries within *one* config file are compared — nothing establishes that two separate config files are ever loaded by the same client. |
+| MCP006 (detection 2) | A directive naming a tool of the **same** server | The author controls both ends, so prose is not how they would redirect a call; measured with `--connect`, this shape produced 38 findings on monday's 88 tools and 1 on firecrawl's 27, every one of them house-style documentation. Cost: a malicious server can hide a directive among its own tools, and a single-server scan has nothing to compare against. See `docs/rules/MCP006.md`. |
 | MCP006 (detection 2) | An imperative and the target tool's name separated by more than 6 tokens | Same trade-off as MCP004's proximity window: widening it re-admits ordinary prose that happens to mention both an imperative word and a tool name in the same paragraph without one directing the other. |
 | MCP006 (detection 2) | A directed tool named 4 characters or fewer (`get`, `run`, `list`, ...) | The minimum-name-length guard exists specifically to keep short, common-English tool names from matching everyday imperative prose that has nothing to do with tool redirection. |
 | MCP008 | A sink reached through indirection — `const run = eval; run(x)`, a re-exported alias, or `globalThis['ev' + 'al'](x)` | Pattern matching over raw text has no notion of aliasing or dynamic property construction. |
@@ -528,6 +529,17 @@ false-clean §16.6 exists to prevent.
 Live tools are added to whatever the path scan found, not substituted for it, so
 one run covers a server's source and its live surface together. They are counted
 separately in `stats.liveTools`.
+
+`--connect-timeout <seconds>` overrides the 120s budget. The default is generous
+because the clock covers more than the handshake: `npx -y` and `uvx` download the
+package first, and a cold `npx -y @mondaydotcomorg/monday-api-mcp` ran past 30s
+while npm was still installing — reporting a timeout for a server that had not
+started yet.
+
+**`connect` is deliberately not a config-file key.** Every other option can be set
+in `mcpscan.config.json`; this one cannot, because a file committed to a
+repository must never be able to make a scan of it execute code. The consent
+stays on the command line.
 
 ### 9.7 The zero-tools hint
 

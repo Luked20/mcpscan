@@ -28,6 +28,8 @@ export interface ScanOptions {
    * passing this is the consent.
    */
   connect?: string;
+  /** Milliseconds to wait for `--connect`; the collector's default when absent. */
+  connectTimeoutMs?: number;
 }
 
 export interface ScanStats {
@@ -109,7 +111,10 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
     // ones, which can then compare a live tool against a file-based one.
     let liveFile: string | undefined;
     if (opts.connect !== undefined) {
-      const connected = await connectAndListTools({ command: opts.connect });
+      const connected = await connectAndListTools({
+        command: opts.connect,
+        ...(opts.connectTimeoutMs !== undefined ? { timeoutMs: opts.connectTimeoutMs } : {}),
+      });
       // A server that would not start is "could not look", not "found nothing".
       if (typeof connected === 'string') return fail(connected);
       liveFile = connected.file;

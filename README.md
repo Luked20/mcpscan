@@ -114,6 +114,7 @@ mcpscan [path]                       # default: '.'
   --disable <ids>    turn off these rules (comma-separated)
   --baseline <file>  ignore findings already listed in this file
   --connect <cmd>    start an MCP server and scan the tools it reports
+  --connect-timeout <s>  how long to wait for --connect (default: 120)
   --config <file>    config file (default: mcpscan.config.json if present)
   --quiet            print findings only; nothing at all when a scan is clean
   --no-color         disable colors

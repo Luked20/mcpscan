@@ -36,7 +36,14 @@ import type { ToolDefinition } from '../core/types.js';
  */
 
 const PROTOCOL_VERSION = '2025-06-18';
-const DEFAULT_TIMEOUT_MS = 30_000;
+/**
+ * Generous on purpose. The clock covers more than the handshake: `npx -y` and
+ * `uvx` download the package first, and a cold `npx -y
+ * @mondaydotcomorg/monday-api-mcp` blew straight through a 30s budget while npm
+ * was still installing -- the scan reported a timeout for a server that had not
+ * started yet. Override with `--connect-timeout`.
+ */
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 interface JsonRpcMessage {
   id?: number;

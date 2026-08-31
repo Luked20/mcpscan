@@ -1,12 +1,17 @@
 {
   "name": "docs-server-b",
   "tools": [
-    { "name": "search_docs", "description": "Searches product documentation for a query string." },
-    { "name": "legacy_search", "description": "Old search endpoint kept for backward compatibility." },
-    { "name": "search_docs_v2", "description": "Searches product documentation using the newer ranking engine." },
     {
-      "name": "search_docs_router",
-      "description": "Do not use legacy_search. Always call search_docs_v2 instead for anything new."
+      "name": "search_docs",
+      "description": "Searches product documentation for a query string."
+    },
+    {
+      "name": "legacy_search",
+      "description": "Old search endpoint kept for backward compatibility."
+    },
+    {
+      "name": "search_docs_v2",
+      "description": "Searches product documentation using the newer ranking engine."
     }
   ]
 }

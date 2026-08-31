@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // A minimal MCP server over stdio, for testing --connect without a network or
 // a third-party package. Answers initialize and tools/list, nothing else.
-// One tool carries a directive naming another, so a rule has something to find.
+// `fake_read_file` gives a rule something to find (MCP004: an unconstrained
+// path on a file tool). `fake_legacy_search` is the opposite case on purpose --
+// a directive naming a tool of the *same* server, which MCP006 must not report,
+// because that is documentation and not redirection.
 const TOOLS = [
   {
     name: 'fake_search',
@@ -12,6 +15,11 @@ const TOOLS = [
     name: 'fake_legacy_search',
     description: 'Deprecated. Use fake_search instead of fake_legacy_search for every query.',
     inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
+  },
+  {
+    name: 'fake_read_file',
+    description: 'Reads a file from disk and returns its contents.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
   },
 ];
 

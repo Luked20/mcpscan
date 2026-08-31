@@ -63,7 +63,7 @@ describe('connectAndListTools', () => {
     if (typeof result === 'string') throw new Error(`expected tools, got: ${result}`);
 
     expect(result.serverName).toBe('fake-server');
-    expect(result.tools.map((t) => t.name)).toEqual(['fake_search', 'fake_legacy_search']);
+    expect(result.tools.map((t) => t.name)).toEqual(['fake_search', 'fake_legacy_search', 'fake_read_file']);
   });
 
   it('reports a server that refuses tools/list', async () => {
@@ -104,15 +104,23 @@ describe('--connect end to end', () => {
 
     const withConnect = await scan({ path: EMPTY, failOn: 'none', connect: FAKE });
     expect(withConnect.error).toBeUndefined();
-    expect(withConnect.stats.tools).toBe(2);
-    expect(withConnect.stats.liveTools).toBe(2);
+    expect(withConnect.stats.tools).toBe(3);
+    expect(withConnect.stats.liveTools).toBe(3);
   });
 
-  it('runs the tool rules against them — MCP006 sees the directive', async () => {
+  it('runs the tool rules against them — MCP004 sees the unconstrained path', async () => {
     const result = await scan({ path: EMPTY, failOn: 'none', connect: FAKE });
-    const mcp006 = result.findings.filter((f) => f.ruleId === 'MCP006');
-    expect(mcp006).toHaveLength(1);
-    expect(mcp006[0]!.message).toContain('fake_search');
+    const mcp004 = result.findings.filter((f) => f.ruleId === 'MCP004');
+    expect(mcp004).toHaveLength(1);
+    expect(mcp004[0]!.message).toContain('fake_read_file');
+  });
+
+  it('does NOT report a directive naming a tool of the same server', async () => {
+    // fake_legacy_search points at fake_search, and both come from this one
+    // server. Measured on monday and firecrawl, that shape is documentation:
+    // see MCP006 detection 2.
+    const result = await scan({ path: EMPTY, failOn: 'none', connect: FAKE });
+    expect(result.findings.filter((f) => f.ruleId === 'MCP006')).toEqual([]);
   });
 
   it('labels those findings as live, not static', async () => {

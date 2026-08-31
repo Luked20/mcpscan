@@ -238,6 +238,34 @@ function namesWithImperative(
   return nameIndexes.some((ni) => imperatives.some((ii) => Math.abs(ni - ii) <= TOKEN_WINDOW));
 }
 
+/**
+ * The named tool must come from a **different manifest**.
+ *
+ * A description that says "call `get_board_info` first" about another tool of
+ * the *same* server is that server documenting its own workflow. The author
+ * already owns both ends: if they wanted to redirect a call, they would change
+ * the tool, not write prose about it. Prose redirection is an attack
+ * specifically when it points somewhere its author does not control — another
+ * server's tool, which the agent will happily prefer because a description told
+ * it to.
+ *
+ * This condition was added after `--connect` made real tool sets reachable, and
+ * it was not a close call. Two servers, measured:
+ *
+ *   `@mondaydotcomorg/monday-api-mcp`   88 tools -> **38** findings
+ *   `firecrawl-mcp-server`              27 tools ->    1 finding
+ *
+ * Every one of the 39 was intra-server, and reading them they are plainly house
+ * style: `get_form` and `update_form` referring to each other,
+ * `list_automations` pointing at `manage_automations`, a deprecated entry point
+ * naming its replacement. A rule that fires 38 times on one well-documented
+ * server is a tax on documenting tools well, not a signal — the same shape as
+ * SKILL003's five-out-of-five and MCP008's four-out-of-five.
+ *
+ * What it gives up is recorded in docs/rules/MCP006.md: a genuinely malicious
+ * server can hide a directive among its own tools, and a single-server scan
+ * has nothing to compare against at all.
+ */
 function detectDirectives(target: ScanTarget): PartialFinding[] {
   const findings: PartialFinding[] = [];
 
@@ -250,6 +278,8 @@ function detectDirectives(target: ScanTarget): PartialFinding[] {
     const directed: string[] = [];
     for (const b of target.tools) {
       if (b === a || b.name === a.name) continue; // never compare a tool against itself
+      // Only a tool in a *different* manifest counts. See the note below.
+      if (b.origin.file === a.origin.file) continue;
       if (namesWithImperative(tokens, imperatives, b.name)) directed.push(b.name);
     }
     if (directed.length === 0) continue;

@@ -7,11 +7,22 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "to": { "type": "string", "format": "email" },
-          "subject": { "type": "string" },
-          "body": { "type": "string" }
+          "to": {
+            "type": "string",
+            "format": "email"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          }
         },
-        "required": ["to", "subject", "body"]
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ]
       }
     },
     {
@@ -19,9 +30,23 @@
       "description": "Formats the email body used by send_email, applying the standard signature and footer.",
       "inputSchema": {
         "type": "object",
-        "properties": { "raw": { "type": "string" } },
-        "required": ["raw"]
+        "properties": {
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "raw"
+        ]
       }
+    },
+    {
+      "name": "update_form",
+      "description": "Updates an existing form. Call get_form first to read the current questions. Do not use create_form for a form that already exists."
+    },
+    {
+      "name": "get_form",
+      "description": "Reads a form definition. Use update_form instead when you need to change it."
     }
   ]
 }

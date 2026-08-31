@@ -27,6 +27,7 @@ const program = new Command()
   .option('--disable <ids>', 'turn off these rules (comma-separated)')
   .option('--baseline <file>', 'ignore findings already listed in this file')
   .option('--connect <command>', 'start an MCP server and scan the tools it reports (runs its code)')
+  .option('--connect-timeout <seconds>', 'how long to wait for --connect (default: 120)')
   .option('--config <file>', `config file (default: ${DEFAULT_CONFIG_FILE} if present)`)
   .option('--quiet', 'print findings only; nothing at all when a scan is clean')
   .option('--no-color', 'disable colors');
@@ -70,6 +71,17 @@ async function main(): Promise<0 | 1 | 2> {
   const formatError = validateFormat(format);
   if (formatError) return bail(formatError);
 
+  // A bad timeout must not silently fall back to the default: the caller asked
+  // for a specific budget and would never learn it was ignored.
+  let connectTimeoutMs: number | undefined;
+  if (opts['connectTimeout'] !== undefined) {
+    const seconds = Number(opts['connectTimeout']);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return bail(`invalid --connect-timeout: ${String(opts['connectTimeout'])}. Use a positive number of seconds.`);
+    }
+    connectTimeoutMs = seconds * 1000;
+  }
+
   let baseline: Set<string> | undefined;
   if (baselineFile !== undefined) {
     // A baseline that fails to load must not degrade to "no baseline": that
@@ -93,6 +105,7 @@ async function main(): Promise<0 | 1 | 2> {
     ...(disable ? { disable } : {}),
     ...(baseline ? { baseline } : {}),
     ...(opts['connect'] ? { connect: String(opts['connect']) } : {}),
+    ...(connectTimeoutMs !== undefined ? { connectTimeoutMs } : {}),
   });
 
   // The error goes to stderr, but the report is still emitted: with a broken
