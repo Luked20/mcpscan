@@ -3,6 +3,7 @@ import {
   type Finding, type PartialFinding, type Rule, type ScanContext, type ScanTarget, type Severity,
 } from './types.js';
 import { rank, compareSeverity } from './severity.js';
+import { helpUriFor } from './help.js';
 
 function clamp(severity: Severity, ceiling: Severity): Severity {
   return rank(severity) > rank(ceiling) ? ceiling : severity;
@@ -87,7 +88,7 @@ export function runRules(target: ScanTarget, rules: Rule[], helpBaseUri: string)
         severity,
         confidence: rule.confidence,
         ...(rule.owasp !== undefined ? { owasp: rule.owasp } : {}),
-        helpUri: `${helpBaseUri}${rule.id}.md`,
+        helpUri: helpUriFor(rule.id, helpBaseUri),
         provenance: 'static',
       });
     }

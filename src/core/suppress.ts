@@ -1,5 +1,6 @@
 import { SUPPRESSION_MARKER } from '../collect/suppression.js';
 import type { Confidence, Finding, Severity, SourceLocation, Suppression } from './types.js';
+import { helpUriFor } from './help.js';
 
 /**
  * Applying suppressions (docs/SPEC.md §8.3) — the other half of
@@ -68,7 +69,7 @@ function diagnostic(s: Suppression, message: string, remediation: string, helpBa
     message,
     remediation,
     evidence: s.raw,
-    helpUri: `${helpBaseUri}${SUPPRESSION_DIAGNOSTIC.id}.md`,
+    helpUri: helpUriFor(SUPPRESSION_DIAGNOSTIC.id, helpBaseUri),
     provenance: 'static',
   };
 }

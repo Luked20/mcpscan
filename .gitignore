@@ -1,3 +1,9 @@
 node_modules
 dist
 *.sarif
+
+# Internal design record and per-rule notes: kept in the working tree, not
+# published. The registry test that requires docs/rules/<ID>.md skips (visibly)
+# when the directory is absent, and findings link to the README's rules table
+# instead — see src/core/help.ts.
+docs/

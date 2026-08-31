@@ -7,8 +7,10 @@ import { fingerprint } from './core/fingerprint.js';
 import { RULES } from './rules/index.js';
 import { atLeast, isFailOn, FAIL_ON_VALUES } from './core/severity.js';
 import type { Finding, Rule, ScanTarget, Severity } from './core/types.js';
+import { HELP_BASE_URI } from './core/help.js';
 
-export const HELP_BASE_URI = 'https://github.com/luked20/mcpscan/blob/main/docs/rules/';
+export { HELP_BASE_URI, helpUriFor } from './core/help.js';
+
 
 export interface ScanOptions {
   path: string;

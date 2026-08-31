@@ -1,6 +1,7 @@
 import { FINGERPRINT_KEY, fingerprint, toPosix } from '../core/fingerprint.js';
 import { SUPPRESSION_DIAGNOSTIC } from '../core/suppress.js';
 import type { Finding, Rule, Severity } from '../core/types.js';
+import { helpUriFor } from '../core/help.js';
 
 const LEVEL: Record<Severity, 'error' | 'warning' | 'note'> = {
   critical: 'error', high: 'error', medium: 'warning', low: 'note', info: 'note',
@@ -47,7 +48,7 @@ export function formatSarif(
             name: r.title,
             shortDescription: { text: r.title },
             fullDescription: { text: r.owasp ? `${r.title} (OWASP MCP: ${r.owasp})` : r.title },
-            helpUri: `https://github.com/luked20/mcpscan/blob/main/docs/rules/${r.id}.md`,
+            helpUri: helpUriFor(r.id),
             defaultConfiguration: { level: LEVEL[r.severity] },
             properties: { tags: ['security', 'mcp'], 'security-severity': SECURITY_SCORE[r.severity] },
           })),

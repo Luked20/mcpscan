@@ -45,7 +45,10 @@ describe('anti-false-positive harness — registry discipline (SPEC §8.1)', () 
         expect(isNonEmptyDir(`${FIXTURES_ROOT}/${rule.id}/clean`)).toBe(true);
       });
 
-      it('has documentation at docs/rules/<ID>.md', () => {
+      // `docs/` is gitignored, so a CI checkout has no rule pages to check. This
+      // SKIPS rather than passes: a skipped test is visible in the run output,
+      // where a silently-true assertion would quietly stop guarding anything.
+      it.skipIf(!existsSync('docs/rules'))('has documentation at docs/rules/<ID>.md', () => {
         expect(existsSync(`docs/rules/${rule.id}.md`)).toBe(true);
       });
 
