@@ -1,4 +1,4 @@
 modelcontextprotocol/servers
   commit: cda92bdaacd558192fedf1a60d2bb27510792388
   file:   src/everything/index.ts
-  captured: 2026-08-30 by scripts/capture-corpus.mjs
+  captured: 2026-08-31 by scripts/capture-corpus.mjs

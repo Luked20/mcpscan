@@ -3,4 +3,4 @@ modelcontextprotocol/servers
   file:   src/sequentialthinking/index.ts
   file:   src/sequentialthinking/lib.ts
   file:   src/sequentialthinking/version.ts
-  captured: 2026-08-30 by scripts/capture-corpus.mjs
+  captured: 2026-08-31 by scripts/capture-corpus.mjs

@@ -18,36 +18,80 @@ import type { PartialFinding, Rule, SourceFile } from '../../core/types.js';
  */
 
 /**
- * Blanks out `//` and block-comment bodies, keeping every other character —
- * and every newline — exactly where it was, so an offset found in the masked
- * text addresses the same position in the original.
+ * A `/` is a division rather than the start of a regex literal when the
+ * previous significant character could end an expression: an identifier, a
+ * number, a closing bracket, or a string.
  *
- * A comment that mentions a sink is the realistic noise source for this rule.
- * MCP010's first run over `awslabs/mcp` produced exactly one finding across
- * 1161 real Python files, and it was a comment saying the author had *avoided*
- * `exec`. There is no reason to expect TypeScript to differ.
- *
- * ## Why only comments, and not string contents
- *
- * MCP010 masks strings too, because Python's are easy to delimit. JavaScript's
- * are not, and the obstacle is the regex literal: `/["']/` contains a quote
- * that starts no string, and telling a regex literal from a division needs the
- * parser this rule deliberately does not have. Guess wrong and the mask
- * swallows real code, which turns into a silent false negative — strictly
- * worse than the noise it was meant to remove.
- *
- * So string tracking here exists only to avoid mistaking a `//` inside a
- * string (`"https://example.com"`) for a comment. When that tracking is fooled
- * by a regex literal, the failure mode is *under*-masking: a comment goes
- * unmasked and the rule behaves exactly as it did before. Never over-masking.
+ * `}` is counted as expression-ending, which is the conservative choice — it is
+ * genuinely ambiguous (block end vs object literal end), and guessing
+ * "division" only ever means a regex goes unrecognised.
  */
-function maskComments(text: string): string {
+const ENDS_EXPRESSION = /[\w$)\]}'"`]/;
+
+/**
+ * From the `/` that opens a regex literal, the index of the `/` that closes it,
+ * or -1. A `/` inside a character class does not close it — `/[/]/` is one
+ * regex, not two.
+ */
+function skipRegexLiteral(text: string, start: number): number {
+  let inClass = false;
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch === '\\') { i += 1; continue; }
+    if (ch === '\n') return -1; // a regex literal cannot span a line
+    if (ch === '[') inClass = true;
+    else if (ch === ']') inClass = false;
+    else if (ch === '/' && !inClass) return i;
+  }
+  return -1;
+}
+
+/**
+ * Blanks out comment bodies and string *contents*, keeping every other
+ * character — and every newline — exactly where it was, so an offset found in
+ * the masked text addresses the same position in the original.
+ *
+ * ## Why strings, and not just comments
+ *
+ * An earlier version masked only comments, on the reasoning that JavaScript
+ * string literals are hard to delimit safely because a regex literal such as
+ * `/["']/` contains a quote that starts no string. That reasoning was right
+ * about the difficulty and wrong about the trade: it weighed the risk of
+ * masking without weighing the cost of not masking.
+ *
+ * A scan of `czlonkowski/n8n-mcp` settled it — **four findings out of five
+ * were string contents**, and none was a sink:
+ *
+ *   `jsCode: 'const result = eval(item.json.code);'`  test fixture data
+ *   `code?.includes('eval(')`                          a security check
+ *   `'Avoid eval() - it's a security risk'`            a warning message, twice
+ *
+ * The last two are from that project's own dangerous-pattern validator, which
+ * strips strings and comments before running its checks. It had solved this
+ * exact problem, and this rule flagged the warning text of the solution.
+ *
+ * ## How the regex-literal problem is handled
+ *
+ * Two defences rather than a parser. Regex literals are recognised and skipped
+ * using the previous-significant-character heuristic above, which covers the
+ * shapes that occur in practice (`= /re/`, `: /re/`, `(/re/`). And every
+ * quoted-string mask is bounded to its own line, which JavaScript's `'` and
+ * `"` literals cannot cross anyway — so when the heuristic is fooled, the
+ * damage is one line, not the rest of the file.
+ *
+ * The residual risk is a missed sink on a line where a regex literal contains
+ * an unbalanced quote. Measured against four false positives in five on real
+ * code, that is the better side to fail on.
+ */
+function maskLiterals(text: string): string {
   const out = text.split('');
   const blank = (from: number, to: number): void => {
     for (let i = from; i < to && i < out.length; i++) {
       if (out[i] !== '\n') out[i] = ' ';
     }
   };
+
+  let previous = '';
 
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
@@ -68,15 +112,32 @@ function maskComments(text: string): string {
       continue;
     }
 
-    if (ch === '"' || ch === "'" || ch === '`') {
-      for (let j = i + 1; j < text.length; j++) {
-        if (text[j] === '\\') { j += 1; continue; }
-        if (text[j] === ch) { i = j; break; }
-        // A quoted string cannot span a newline; a template literal can. Bounding
-        // the non-template case keeps a stray quote from swallowing the file.
-        if (ch !== '`' && text[j] === '\n') { i = j - 1; break; }
+    if (ch === '/' && (previous === '' || !ENDS_EXPRESSION.test(previous))) {
+      const end = skipRegexLiteral(text, i);
+      if (end > 0) {
+        // Left intact: a regex is code, and its contents are not prose. Skipping
+        // it is what keeps a quote inside it from opening a bogus string.
+        i = end;
+        previous = '/';
+        continue;
       }
     }
+
+    if (ch === '"' || ch === "'" || ch === '`') {
+      let closed = i;
+      for (let j = i + 1; j < text.length; j++) {
+        if (text[j] === '\\') { j += 1; continue; }
+        if (text[j] === ch) { closed = j; break; }
+        // A quoted string cannot span a newline; a template literal can.
+        if (ch !== '`' && text[j] === '\n') { closed = j - 1; break; }
+      }
+      blank(i + 1, closed);
+      i = closed;
+      previous = ch;
+      continue;
+    }
+
+    if (!/\s/.test(ch)) previous = ch;
   }
 
   return out.join('');
@@ -266,8 +327,9 @@ export const MCP008 = {
   check(sourceFile: SourceFile) {
     if (sourceFile.language !== 'ts' && sourceFile.language !== 'js') return [];
 
-    // Comments are blanked first: a sink named in prose is not a sink.
-    const masked = maskComments(sourceFile.text);
+    // Comments and string contents are blanked first: a sink named in prose,
+    // in test data, or in a warning message is not a sink.
+    const masked = maskLiterals(sourceFile.text);
     const matches: SinkMatch[] = [
       ...findEvalSinks(masked),
       ...findNewFunctionSinks(masked),

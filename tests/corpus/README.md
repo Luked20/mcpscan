@@ -28,6 +28,15 @@ findings, all of them false**:
 Both are recorded in `docs/SPEC.md` §7.4. Neither would have been found by
 writing more fixtures by hand.
 
+It has kept doing that since. Later runs against repositories added here found
+three more, in rules that already had passing fixtures:
+
+| Input | What it found |
+|---|---|
+| `awslabs/mcp` | MCP010's only finding across 1161 Python files was a comment saying the author had *avoided* `exec` |
+| `mondaycom/mcp` | all five SKILL003 findings were markdown blockquotes and `<placeholder>` syntax read as shell redirects |
+| `czlonkowski/n8n-mcp` | four of five MCP008 findings were sinks named inside string literals — test data, a security check, two warning messages |
+
 ## What is in here
 
 ### `servers/` — captured `tools/list` output
@@ -77,6 +86,7 @@ verbatim at a pinned commit:
 |---|---|
 | `filesystem/` | `index.ts`, `lib.ts`, `path-utils.ts`, `path-validation.ts`, `roots-utils.ts` |
 | `git/`, `fetch/`, `time/` | `server.py` — the Python half of the reference servers |
+| `n8n/` | `config-validator.ts`, `test-code-node-enhancements.ts` from [`czlonkowski/n8n-mcp`](https://github.com/czlonkowski/n8n-mcp) — a third-party server, and the input that settled how MCP008 treats string contents |
 | `memory/` | `index.ts` |
 | `sequential-thinking/` | `index.ts`, `lib.ts`, `version.ts` |
 | `everything/` | `index.ts` |

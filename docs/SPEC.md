@@ -295,11 +295,20 @@ These are known misses. All fail in the safe direction — silence rather than n
 | MCP010 | A command assembled in a variable and then passed in — `os.system(cmd)` | A bare variable says nothing about where its value came from; firing on it would flag every server that builds argv in a helper. Deliberate under-detection, matching MCP008's treatment of `exec(cmd)`. |
 | MCP008 | A real sink inside a test file (`tests/`, `test/`, `__tests__/`, `__mocks__/`, `spec/` path segment, or a `*.test.*`/`*.spec.*` basename) | The source collector (`isTestFile()` in `src/collect/source.ts`) excludes test files before a `SourceFile` is even produced, for every current and future source rule, not just MCP008. Test code never runs in front of an agent, so a sink inside it is not deployed code and not a real finding — the same reasoning MCP001–MCP006 apply implicitly by only shipping rules over manifests/skills a client actually loads. |
 
-**Accepted false positive (the inverse case, listed here because it is the direct counterpart of the row above): MCP008 matches its own source.** A self-scan of `src/` reports four findings, all in `src/rules/mcp/MCP008.ts`, all from the rule writing `eval()` and `new Function()` inside its own `message` and `remediation` strings.
+**The self-scan is clean, and getting there took three passes.** This entry used to record "MCP008 matches its own source" as permanent. It is worth keeping the history, because the reasoning failed the same way twice.
 
-Comments no longer count — both MCP008 and MCP010 blank comment bodies before matching, which is what removed the noisiest half of this class (and, in MCP010's case, the only finding a scan of 1161 real Python files produced). **String contents are masked in MCP010 but not in MCP008**, and the asymmetry is deliberate: Python's string literals are unambiguous, JavaScript's are not, because a regex literal such as `/["']/` contains a quote that starts no string and cannot be told from a division without a parser. Masking on a wrong guess swallows real code and becomes a silent false negative — strictly worse than the noise it removes.
+Both MCP008 and MCP010 now blank comment bodies *and* string contents before matching. Each step was forced by real third-party code, never by inspection:
 
-So four findings remain, and contorting the rule's own strings to dodge its own patterns is judged worse than the finding. This is the permanent line item in mcpscan's self-scan.
+| Input | What it showed |
+|---|---|
+| `awslabs/mcp`, 1161 Python files | one finding, and it was a comment saying the author had *avoided* `exec` → comment masking, both rules |
+| `czlonkowski/n8n-mcp`, 308 TS files | five findings, **four** of them string contents: test fixture data, a security check, and two warning messages → string masking in MCP008 |
+
+The second step had been argued against explicitly, here, on the grounds that a regex literal like `/["']/` contains a quote that starts no string and cannot be told from a division without a parser. That reasoning was right about the difficulty and wrong about the trade: it weighed the risk of masking without weighing the cost of not masking, which real code measured at four false positives in five.
+
+The fix is two defences rather than a parser — regex literals recognised by the previous-significant-character heuristic, and every quoted-string mask bounded to its own line, so a fooled heuristic costs one line instead of a file. The residual risk is a missed sink on a line where a regex literal carries an unbalanced quote.
+
+**The lesson worth keeping is not about masking.** Twice a limitation was declared permanent from the armchair, and twice a scan of somebody else's repository showed the cost was higher than assumed. An accepted false positive should be re-examined the first time real input puts a number on it.
 
 Each entry is a candidate for hardening once the regression corpus (§8.2) exists to measure against. None should be closed speculatively — that is how MCP002 acquired four false-positive classes in the first place.
 

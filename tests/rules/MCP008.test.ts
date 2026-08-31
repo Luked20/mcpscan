@@ -142,3 +142,68 @@ describe('MCP008 — comments are not code', () => {
     expect(() => check('/* unterminated\neval(x);')).not.toThrow();
   });
 });
+
+describe('MCP008 — string contents are not code', () => {
+  const check = (ts: string) => MCP008.check(collectSource('server.ts', ts));
+
+  // Every line here is from czlonkowski/n8n-mcp, where four findings out of
+  // five were string contents and none was a sink.
+  it.each([
+    ['test fixture data', "const cfg = { jsCode: 'const result = eval(item.json.code);' };"],
+    ['a security check', "if (code?.includes('eval(') || code?.includes('exec(')) warn();"],
+    ['a warning message', "const m = 'Avoid eval() - it is a security risk';"],
+    ['a template literal', 'const m = `never call eval() yourself`;'],
+    ['a double-quoted string', 'const m = "do not use new Function(body)";'],
+  ])('does NOT flag a sink named in %s', (_label, code) => {
+    expect(check(code)).toEqual([]);
+  });
+
+  it('still flags a real call beside a string that mentions one', () => {
+    expect(check(`const m = 'avoid eval()'; eval(userInput);`)).toHaveLength(1);
+  });
+
+  it('is not fooled by a quote inside a regex literal', () => {
+    // The reason string masking was avoided at first: `/["']/` has a quote that
+    // opens no string. Skipping regex literals keeps the sink after it visible.
+    expect(check('const RE = /["\']/; eval(userInput);')).toHaveLength(1);
+  });
+
+  // Each carries the hazard itself — an unbalanced quote inside the regex. If
+  // the literal is not recognised in that position, the quote opens a bogus
+  // string, the rest of the line is masked, and the sink after it disappears.
+  it.each([
+    ['assignment', `const RE = /["']/; eval(x);`],
+    ['object value', `const t = { pattern: /["']/ }; eval(x);`],
+    ['call argument', `test(/["']/); eval(x);`],
+    ['return', `function f() { return /["']/; } eval(x);`],
+  ])('recognises a regex literal in %s position', (_label, code) => {
+    expect(check(code)).toHaveLength(1);
+  });
+
+  it('treats a slash after an expression as division, not a regex', () => {
+    expect(check('const half = total / 2; eval(x);')).toHaveLength(1);
+  });
+
+  it('bounds a quoted string to its own line', () => {
+    // An unterminated quote must not swallow the rest of the file.
+    expect(check("const broken = 'oops;\neval(userInput);")).toHaveLength(1);
+  });
+
+  it('keeps line numbers correct across a masked multi-line template', () => {
+    const code = ['const t = `', 'mentions eval() here', '`;', '', 'eval(userInput);'].join('\n');
+    const findings = check(code);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.location.line).toBe(5);
+  });
+
+  it('still classifies a template argument correctly after masking', () => {
+    const findings = check('execSync(`ls ${dir}`);');
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('template-literal');
+    expect(findings[0]!.evidence).toContain('ls ${dir}');
+  });
+
+  it('still clears a fixed-string command', () => {
+    expect(check('execSync("ls -la");')).toEqual([]);
+  });
+});

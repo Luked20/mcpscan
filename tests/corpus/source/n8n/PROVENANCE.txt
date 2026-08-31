@@ -1,0 +1,5 @@
+czlonkowski/n8n-mcp
+  commit: f895e5ecc732aed31e2ca9748027034f5b19cccd
+  file:   src/services/config-validator.ts
+  file:   scripts/test-code-node-enhancements.ts
+  captured: 2026-08-31 by scripts/capture-corpus.mjs

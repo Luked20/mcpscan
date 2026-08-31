@@ -5,4 +5,4 @@ modelcontextprotocol/servers
   file:   src/filesystem/path-utils.ts
   file:   src/filesystem/path-validation.ts
   file:   src/filesystem/roots-utils.ts
-  captured: 2026-08-30 by scripts/capture-corpus.mjs
+  captured: 2026-08-31 by scripts/capture-corpus.mjs

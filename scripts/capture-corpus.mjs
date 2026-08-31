@@ -248,6 +248,16 @@ const SOURCE_FILES = [
     files: ['src/sequentialthinking/index.ts', 'src/sequentialthinking/lib.ts', 'src/sequentialthinking/version.ts'],
   },
   { id: 'everything', files: ['src/everything/index.ts'] },
+  // A third-party TypeScript server, and the one that settled how MCP008
+  // handles string contents: four of its five findings were sinks named in
+  // strings -- test fixture data, a security check, and two warning messages
+  // from its own dangerous-pattern validator.
+  {
+    id: 'n8n',
+    repo: 'czlonkowski/n8n-mcp',
+    commit: 'f895e5ecc732aed31e2ca9748027034f5b19cccd',
+    files: ['src/services/config-validator.ts', 'scripts/test-code-node-enhancements.ts'],
+  },
   // Python, for MCP010. The reference servers are split between the two
   // languages, and until these were here MCP010 had no real-world input at
   // all -- the same gap MCP008 had before source/ existed.
@@ -261,16 +271,18 @@ async function captureSource() {
   for (const entry of SOURCE_FILES) {
     const dir = join(outDir, entry.id);
     mkdirSync(dir, { recursive: true });
+    const repo = entry.repo ?? SERVERS_REPO;
+    const commit = entry.commit ?? SERVERS_COMMIT;
     for (const path of entry.files) {
-      const text = await download(raw(SERVERS_REPO, SERVERS_COMMIT, path));
+      const text = await download(raw(repo, commit, path));
       const name = path.slice(path.lastIndexOf('/') + 1);
       writeFileSync(join(dir, name), text, 'utf8');
       console.log(`${entry.id}: ${text.length} bytes -> tests/corpus/source/${entry.id}/${name}`);
     }
     writeFileSync(join(dir, 'PROVENANCE.txt'),
       [
-        SERVERS_REPO,
-        `  commit: ${SERVERS_COMMIT}`,
+        repo,
+        `  commit: ${commit}`,
         ...entry.files.map((f) => `  file:   ${f}`),
         `  captured: ${new Date().toISOString().slice(0, 10)} by scripts/capture-corpus.mjs`,
         '',
