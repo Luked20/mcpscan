@@ -15,3 +15,5 @@ docs/*
 # Assistant instructions and project strategy notes: local only.
 CLAUDE.MD
 CLAUDE.md
+
+.gitignore
