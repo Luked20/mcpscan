@@ -141,3 +141,31 @@ describe('--connect end to end', () => {
     expect(result.findings.every((f) => f.provenance === 'static')).toBe(true);
   });
 });
+
+describe('--connect does not turn one server into two', () => {
+  // czlonkowski/n8n-mcp ships a manifest.json declaring "n8n-mcp" with 23
+  // tools; the running server introduces itself as "n8n-documentation-mcp"
+  // and reports 7. Seven names overlap, so detection 1 reported seven
+  // collisions between "two servers" that are one piece of software seen
+  // twice, by two routes. A client cannot load a repository.
+  const FAKE = 'node tests/fixtures/connect/server.mjs';
+  const MANIFEST_DIR = 'tests/fixtures/connect/repo';
+
+  it('does not report a collision between a live tool and a manifest of the same scan', async () => {
+    const result = await scan({ path: MANIFEST_DIR, failOn: 'none', connect: FAKE });
+    expect(result.findings.filter((f) => f.ruleId === 'MCP006')).toEqual([]);
+  });
+
+  it('still reports a collision between two manifests on disk', async () => {
+    // The static side keeps working: this is the same directory, scanned
+    // without --connect, against a second manifest that collides with it.
+    const result = await scan({ path: 'tests/fixtures/MCP006/vulnerable', failOn: 'none' });
+    expect(result.findings.filter((f) => f.ruleId === 'MCP006').length).toBeGreaterThan(0);
+  });
+
+  it('marks live tools so a rule can tell them apart', async () => {
+    const result = await scan({ path: MANIFEST_DIR, failOn: 'none', connect: FAKE });
+    expect(result.stats.liveTools).toBe(3);
+    expect(result.stats.tools).toBeGreaterThan(3);
+  });
+});

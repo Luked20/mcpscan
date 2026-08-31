@@ -31,6 +31,13 @@ export interface ToolDefinition {
    * used to claim two tools belong to different, competing servers.
    */
   serverNameSource?: 'declared' | 'derived';
+  /**
+   * Whether this tool was read from a file or obtained by starting the server
+   * (`--connect`). MCP006 must not compare across the two: a live capture and a
+   * manifest found in the same scan are most likely the same server observed
+   * twice, not two servers a client would load together.
+   */
+  provenance?: 'static' | 'live';
   origin: SourceLocation;
   /**
    * Location of an inner field, addressed by **path segments relative to this

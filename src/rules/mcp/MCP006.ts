@@ -11,6 +11,24 @@ import type { PartialFinding, Rule, ScanTarget, ServerDefinition, ToolDefinition
  * Three independent detections, described separately below (1, 1b, 2). Any
  * can fire on its own; a target that trips more than one produces findings
  * from each.
+ *
+ * ## Static and live tools are never compared against each other
+ *
+ * Both tool detections run twice — once over tools read from files, once over
+ * tools captured with `--connect` — and never across the two. `--connect`
+ * created this problem the moment it existed: scanning a server's own
+ * repository *and* starting that server finds the same tools twice, by two
+ * routes.
+ *
+ * `czlonkowski/n8n-mcp` is the worked example. Its repository ships a
+ * `manifest.json` declaring `"name": "n8n-mcp"` with 23 tools; the running
+ * server introduces itself as `n8n-documentation-mcp` and reports 7. Seven
+ * names overlap, the two documents are different files with different declared
+ * names, and detection 1 duly reported seven collisions between "two servers"
+ * that are one piece of software seen twice.
+ *
+ * A client cannot load a repository. Comparing a live capture against a
+ * manifest found in the same scan answers a question nobody asked.
  */
 
 /**
@@ -51,9 +69,9 @@ import type { PartialFinding, Rule, ScanTarget, ServerDefinition, ToolDefinition
  * Deduplicated by file: a collision among three servers produces one finding
  * naming all three, never three findings.
  */
-function detectNameCollisions(target: ScanTarget): PartialFinding[] {
+function detectNameCollisions(tools: readonly ToolDefinition[]): PartialFinding[] {
   const byName = new Map<string, ToolDefinition[]>();
-  for (const tool of target.tools) {
+  for (const tool of tools) {
     if (tool.serverNameSource !== 'declared') continue;
     const existing = byName.get(tool.name);
     if (existing) existing.push(tool);
@@ -266,17 +284,17 @@ function namesWithImperative(
  * server can hide a directive among its own tools, and a single-server scan
  * has nothing to compare against at all.
  */
-function detectDirectives(target: ScanTarget): PartialFinding[] {
+function detectDirectives(tools: readonly ToolDefinition[]): PartialFinding[] {
   const findings: PartialFinding[] = [];
 
-  for (const a of target.tools) {
+  for (const a of tools) {
     if (!a.description) continue;
     const tokens = tokenize(a.description);
     const imperatives = imperativeIndexes(tokens);
     if (imperatives.length === 0) continue;
 
     const directed: string[] = [];
-    for (const b of target.tools) {
+    for (const b of tools) {
       if (b === a || b.name === a.name) continue; // never compare a tool against itself
       // Only a tool in a *different* manifest counts. See the note below.
       if (b.origin.file === a.origin.file) continue;
@@ -310,6 +328,17 @@ export const MCP006 = {
   owasp: 'MCP03:2025 – Tool Poisoning',
   appliesTo: 'target',
   check(target: ScanTarget) {
-    return [...detectNameCollisions(target), ...detectConfigServerCollisions(target), ...detectDirectives(target)];
+    // Static and live tools are compared only against their own kind -- see the
+    // provenance note in this file's header.
+    const staticTools = target.tools.filter((t) => t.provenance !== 'live');
+    const liveTools = target.tools.filter((t) => t.provenance === 'live');
+
+    return [
+      ...detectNameCollisions(staticTools),
+      ...detectNameCollisions(liveTools),
+      ...detectConfigServerCollisions(target),
+      ...detectDirectives(staticTools),
+      ...detectDirectives(liveTools),
+    ];
   },
 } satisfies Rule;

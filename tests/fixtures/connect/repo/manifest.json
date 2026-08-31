@@ -1,0 +1,7 @@
+{
+  "name": "fake-server-as-shipped",
+  "tools": [
+    { "name": "fake_search", "description": "Searches the fake index." },
+    { "name": "fake_read_file", "description": "Reads a file from disk and returns its contents." }
+  ]
+}

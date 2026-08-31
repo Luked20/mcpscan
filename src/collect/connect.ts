@@ -103,12 +103,15 @@ export function readMessages(buffer: string): { messages: JsonRpcMessage[]; rest
  * file-based tool are the same shape to every rule, with no second code path
  * to keep in step.
  */
-export function toolsFromListResult(tools: unknown[], serverName: string): ConnectResult {
+export function toolsFromListResult(reported: unknown[], serverName: string): ConnectResult {
   // Distinctive on purpose: it must never collide with a real path, because
   // MCP006 treats one file as one deployment.
   const file = `connect:${serverName}/tools.json`;
-  const text = JSON.stringify({ name: serverName, tools }, null, 2);
-  return { tools: collectManifest(file, text), serverName, file };
+  const text = JSON.stringify({ name: serverName, tools: reported }, null, 2);
+  // Marked live so MCP006 never compares this capture against a manifest found
+  // in the same scan — most likely the same server, seen twice.
+  const tools = collectManifest(file, text).map((t) => ({ ...t, provenance: 'live' as const }));
+  return { tools, serverName, file };
 }
 
 /**
