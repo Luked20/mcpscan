@@ -1,0 +1,7 @@
+context7
+  capture: tools/list (+ resources/prompts where advertised), verbatim, via --connect
+  taken:   2026-08-31, against the package as published that day
+  why:     precision. These are large, real, third-party tool surfaces from
+           servers people actually run -- 89 tools between them. Before they
+           were here the corpus measured MCP001-MCP006 against 37 tools, all
+           from official reference servers written in one house style.

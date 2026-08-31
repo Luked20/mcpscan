@@ -187,3 +187,30 @@ as an accepted false negative in `docs/SPEC.md` §7.4 and
 `docs/rules/MCP007.md`; closing it means parsing `docker run` argv well
 enough to tell the image from its flags, which is a rule change, not a corpus
 change.
+
+## `live/` — third-party tool surfaces, captured with `--connect`
+
+Five servers people actually run, captured the way a user would scan them:
+
+| Capture | tools | resources |
+|---|---|---|
+| `supabase` | 29 | 0 |
+| `firecrawl` | 27 | 0 |
+| `playwright` | 24 | 0 |
+| `n8n` | 7 | 2 |
+| `context7` | 2 | 0 |
+
+They are here for precision. Before them the corpus measured MCP001–MCP006
+against 37 tools, all from official reference servers written by one
+organisation in one house style — the same narrowness the skills corpus had
+before a second vendor was added. These take it to 126.
+
+**Each capture is scanned on its own**, not together with the others. A user
+points mcpscan at one server; a bag of nine unrelated ones is not a deployment,
+and scanning them as one asserted they are co-loaded. That is not a hypothetical:
+`search_nodes` is declared by both `memory-server` and n8n's server, and MCP006
+correctly reported a collision between two servers that only ever met inside this
+directory. The rule was right and the target was wrong.
+
+`skills/`, `source/` and `configs/` stay whole-tree scans, because those really
+do coexist in a repository — which is the shape they were taken from.

@@ -141,14 +141,62 @@ describe('anti-false-positive harness — regression corpus (SPEC §8.2)', () =>
   // by the recall harness in tests/recall.test.ts, which asserts the opposite.
   const CORPUS_ROOT = 'tests/corpus/clean';
 
-  let result: Awaited<ReturnType<typeof scan>>;
+  /**
+   * One scan per *deployment*, not one scan of the whole tree.
+   *
+   * Each captured server is scanned on its own, because that is what a real
+   * scan looks like: a user points mcpscan at one server, never at a bag of
+   * nine unrelated ones. Scanning them together asserted they are co-loaded,
+   * which is false -- and it manufactured a finding to match. `search_nodes` is
+   * declared by both `memory-server` and n8n's server, so MCP006 correctly
+   * reported a collision between two servers that only ever met inside this
+   * directory. The rule was right; the target misrepresented reality.
+   *
+   * `skills/`, `source/` and `configs/` stay whole-tree scans: those genuinely
+   * do coexist in a repository, which is the shape they were taken from.
+   */
+  function scanTargets(): string[] {
+    const captures = ['servers', 'live'].flatMap((group) => {
+      const dir = join(CORPUS_ROOT, group);
+      if (!existsSync(dir)) return [];
+      return readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => join(dir, e.name));
+    });
+    return [...captures, ...['skills', 'source', 'configs'].map((d) => join(CORPUS_ROOT, d))];
+  }
+
+  const targets = scanTargets();
+  const results = new Map<string, Awaited<ReturnType<typeof scan>>>();
+
   beforeAll(async () => {
-    result = await scan({ path: CORPUS_ROOT, failOn: 'none' }); // every registered rule
+    for (const target of targets) {
+      results.set(target, await scan({ path: target, failOn: 'none' })); // every registered rule
+    }
+  });
+
+  const totals = () => {
+    const sum = { tools: 0, skills: 0, sourceFiles: 0, servers: 0, resources: 0, prompts: 0 };
+    for (const r of results.values()) {
+      sum.tools += r.stats.tools;
+      sum.skills += r.stats.skills;
+      sum.sourceFiles += r.stats.sourceFiles;
+      sum.servers += r.stats.servers;
+      sum.resources += r.stats.resources;
+      sum.prompts += r.stats.prompts;
+    }
+    return sum;
+  };
+
+  it('found something to scan in every part of the corpus', () => {
+    expect(targets.length).toBeGreaterThanOrEqual(8);
   });
 
   it('parses cleanly — a corpus the scanner cannot read proves nothing', () => {
-    expect(result.error).toBeUndefined();
-    expect(result.stats.unreadable).toBe(0);
+    for (const [target, r] of results) {
+      expect(r.error, `${target}: ${r.error ?? ''}`).toBeUndefined();
+      expect(r.stats.unreadable, target).toBe(0);
+    }
   });
 
   it('actually contains subjects — an empty corpus would pass silently', () => {
@@ -160,21 +208,29 @@ describe('anti-false-positive harness — regression corpus (SPEC §8.2)', () =>
     // consumes: without `sourceFiles` MCP008 has no real input, without
     // `servers` neither do MCP007 and MCP009, and the zero-high/critical
     // assertion below would pass for those three by never running them.
-    expect(result.stats.tools).toBeGreaterThanOrEqual(20);
-    expect(result.stats.skills).toBeGreaterThanOrEqual(10);
-    expect(result.stats.sourceFiles).toBeGreaterThanOrEqual(8);
-    expect(result.stats.servers).toBeGreaterThanOrEqual(5);
+    const sum = totals();
+    expect(sum.tools).toBeGreaterThanOrEqual(100);
+    expect(sum.skills).toBeGreaterThanOrEqual(10);
+    expect(sum.sourceFiles).toBeGreaterThanOrEqual(8);
+    expect(sum.servers).toBeGreaterThanOrEqual(5);
+    // Phase 2 collects these; nothing consumes them yet (SPEC 8.6). The floor is
+    // here so the day a rule does, it has real input rather than none.
+    expect(sum.resources).toBeGreaterThanOrEqual(9);
+    expect(sum.prompts).toBeGreaterThanOrEqual(4);
   });
 
   it('produces zero high/critical findings from any registered rule', () => {
-    const serious = result.findings.filter((f) => f.severity === 'high' || f.severity === 'critical');
+    const serious = [...results].flatMap(([target, r]) =>
+      r.findings
+        .filter((f) => f.severity === 'high' || f.severity === 'critical')
+        .map((f) => ({ target, f })));
 
     if (serious.length > 0) {
       const detail = serious
-        .map((f) => {
+        .map(({ target, f }) => {
           const loc = `${f.location.file}:${f.location.line}:${f.location.column}` +
             (f.location.jsonPath ? ` (${f.location.jsonPath})` : '');
-          return `  - ${f.ruleId} [${f.severity}] at ${loc} — ${f.message}`;
+          return `  - [${target}] ${f.ruleId} [${f.severity}] at ${loc} — ${f.message}`;
         })
         .join('\n');
       throw new Error(
