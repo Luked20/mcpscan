@@ -1,0 +1,4 @@
+appsecco/vulnerable-mcp-servers-lab@47b7f20
+  path:    vulnerable-mcp-server-indirect-prompt-injection
+  capture: captured with --connect from the server as published
+  date:    2026-08-31

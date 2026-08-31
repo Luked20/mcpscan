@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS. `get_document` and `search_documents` declare themselves honestly. The hidden instructions are inside the DOCUMENTS the tools return -- the same content-vs-declaration boundary as the malicious-tool-output case.",
+  "expect": []
+}

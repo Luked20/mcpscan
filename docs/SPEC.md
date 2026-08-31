@@ -568,6 +568,60 @@ Until one of those, resources and prompts are collected, counted, reported, and
 available to any rule that earns its way in — and no rule claims to check them.
 The scanner says nothing about them rather than saying something unfounded.
 
+### 8.7 The boundary: declarations, not behaviour
+
+Four more third-party adversarial corpora were scanned — `IntegSec/VulnerableMCP`,
+`appsecco/vulnerable-mcp-servers-lab`, `canack/bad-mcp`, `evrenyal/mcpsecurity`.
+Together with the two already in §8.4 they draw a line that is worth stating as a
+contract rather than discovering case by case.
+
+**What is detected — things a server *declares*:**
+
+| Case | Rule |
+|---|---|
+| `<IMPORTANT>` instruction in a tool description (×3, Invariant PoCs) | MCP001 / critical |
+| Hidden instruction in a tool description (DVMCP ch2) | MCP001 / critical |
+| Zero-width characters hiding an instruction (`VulnerableMCP`) | MCP002 / critical |
+| `eval(expression)` on a tool argument (`VulnerableMCP`, DVMCP ch8) | MCP008 / MCP010 |
+| `eval` of user input (`appsecco` malicious-code-exec) | MCP008 / high |
+
+**What is not — things a server *does*:**
+
+| Case | Where the attack lives |
+|---|---|
+| `appsecco` malicious-tools | the tool's **return value** |
+| `appsecco` indirect-prompt-injection | the **documents** the tool returns |
+| `appsecco` namespace-typosquatting | the **package name** (`twittter-mcp`) |
+| DVMCP challenge 1 | the resource's **content** |
+| Invariant rug pull | a **later** snapshot |
+
+Every miss is on the same side of one line: **mcpscan reads what a server says
+about itself, and never what it returns.** Tool descriptions, schemas, resource
+and prompt metadata, client configs, source. Crossing that line means calling
+tools and reading resources — executing the thing under test, with its side
+effects, and producing a report that contains whatever came back.
+
+That is a coherent product boundary rather than a list of gaps, and it is where
+the line should stay until there is a reason to move it. Every case above is
+committed in `tests/corpus/malicious/` with the expectation it earns today, so a
+future rule that crosses the line has something to prove itself against.
+
+**One detection is more fragile than it looks.** The `VulnerableMCP` description
+is caught by MCP002, on its zero-width spaces — **not** by MCP001. Its
+`[HIDDEN INSTRUCTION: ...]` and `<!-- COMMENT: ... -->` match no injection
+pattern, which requires an imperative *and* a target (§7 `patterns.ts`). An
+author who wrote the same instruction without invisible characters would not be
+caught. That is a real gap in MCP001's pattern set, found by a third-party
+payload, and it is a better candidate for the next rule work than anything in
+§8.6.
+
+**`canack/bad-mcp` was not scanned at all**: it is Go, and `discover()` collects
+`.json`, `SKILL.md`, `.ts`/`.js` and `.py`. Zero files examined — the same shape
+of gap Python had before MCP010, and the reason the zero-tools hint (§9.7)
+exists. Its attacks are protocol-level and live in tool descriptions, so
+`--connect` would reach them regardless of implementation language; that is the
+cheap way in, not a Go collector.
+
 ---
 
 ## 9. CLI

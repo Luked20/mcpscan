@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS. The tools are ordinary Twitter-shaped tools and the descriptions are clean. The attack is the PACKAGE NAME: it publishes as `twittter-mcp`, one letter off a hypothetical legitimate `twitter-mcp`. That lives in whatever a user typed into their client config, not in tools/list. Catching it would need a known-good package list to compare against -- a different kind of rule, with a different kind of evidence.",
+  "expect": []
+}

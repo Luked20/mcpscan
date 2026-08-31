@@ -1,0 +1,4 @@
+IntegSec/VulnerableMCP@4cfe462
+  path:    src/tools/poisoned-tool.ts
+  capture: transcribed verbatim from the source (the TypeScript server was not built), so the payload is theirs, not this project's
+  date:    2026-08-31

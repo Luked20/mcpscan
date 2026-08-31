@@ -1,0 +1,40 @@
+{
+  "name": "vulnerable-mcp-server-indirect-prompt-injection",
+  "tools": [
+    {
+      "name": "get_document",
+      "description": "Retrieve a document by its ID. Available IDs: company_policy, product_specs, user_review, safe_document",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "The ID of the document to retrieve"
+          }
+        },
+        "required": [
+          "document_id"
+        ]
+      }
+    },
+    {
+      "name": "search_documents",
+      "description": "Search for documents containing specific keywords",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  ],
+  "resources": [],
+  "resourceTemplates": [],
+  "prompts": []
+}

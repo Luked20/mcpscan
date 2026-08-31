@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS, and a different class from every other case here. Both tool descriptions are entirely benign -- 'Fetches the current operational status summary from Atlassian's status page API.' The attack is in what the tool RETURNS when called: output crafted to influence the assistant. No listing can see it; only calling the tool can, which is a step past what --connect does. See docs/SPEC.md \u00a78.7.",
+  "expect": []
+}
