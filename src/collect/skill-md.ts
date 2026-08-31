@@ -1,6 +1,6 @@
 import { parse as parseYaml } from 'yaml';
 import { createLineIndex, makeLocation } from '../core/location.js';
-import type { SkillDefinition, SourceLocation } from '../core/types.js';
+import type { BundledScript, SkillDefinition, SourceLocation } from '../core/types.js';
 
 /**
  * Matches the opening `---` fence. Deliberately simple (a literal line, not a
@@ -73,9 +73,15 @@ function fallbackName(file: string): string {
 }
 
 /**
- * `collectSkill(file, text)` — same contract as the other collectors: no I/O,
- * returns `null` rather than throwing on anything malformed (no frontmatter,
- * invalid YAML, frontmatter that isn't a mapping).
+ * `collectSkill(file, text, bundledScripts)` — same contract as the other
+ * collectors: no I/O, returns `null` rather than throwing on anything malformed
+ * (no frontmatter, invalid YAML, frontmatter that isn't a mapping).
+ *
+ * `bundledScripts` is passed in rather than read here precisely because of that
+ * no-I/O contract: finding a skill's sibling files means touching the disk, so
+ * `discover()` does it and hands the results over. Defaulting to `[]` keeps
+ * every existing caller — and every unit test that builds a skill from a string
+ * — working unchanged.
  *
  * Frontmatter is parsed as plain text first (fence detection above), then the
  * captured block is handed to the `yaml` package. `frontmatterLoc(key)` scans
@@ -85,7 +91,11 @@ function fallbackName(file: string): string {
  * (`description: "say name: nicely"`) never matches unless it genuinely
  * starts a line of its own.
  */
-export function collectSkill(file: string, text: string): SkillDefinition | null {
+export function collectSkill(
+  file: string,
+  text: string,
+  bundledScripts: BundledScript[] = [],
+): SkillDefinition | null {
   const openMatch = OPEN_FENCE_RE.exec(text);
   if (!openMatch) return null;
 
@@ -139,6 +149,7 @@ export function collectSkill(file: string, text: string): SkillDefinition | null
     body,
     bodyOffsetLine,
     referencedFiles,
+    bundledScripts,
     origin,
     frontmatterLoc,
   };

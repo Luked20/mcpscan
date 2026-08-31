@@ -879,7 +879,7 @@ existing rule sees it — and why the fix is not another regex.
 
 It licenses reading a skill's bundled scripts: that is a missing surface, not a
 judgement call, and the sinks to look for there are the ones MCP008 and MCP010
-already define.
+already define. **That half is now built** — see §8.10.3.
 
 It does **not** license a rule keyed on phrases like "after every task" or
 "scan the directory". Those appear in legitimate skills, the clean corpus has 28
@@ -890,6 +890,53 @@ design problem and deserves its own spec, not a pattern added under this one.
 The honest summary to carry forward: **on MCP servers the scanner is measured
 and reasonable; on agent skills it is measured and weak.** Both halves of that
 sentence are now backed by third-party attacks rather than by fixtures.
+
+#### 8.10.3 Reading what a skill ships
+
+`SkillDefinition.bundledScripts` now carries the executables found under a
+skill's own directory, with their contents. `collectSkill` keeps its no-I/O
+contract — `discover()` does the reading and hands the results in, defaulting to
+`[]` so every existing caller is unaffected.
+
+Two decisions worth recording:
+
+**Why not add `.sh` to the global source glob.** A shell script in a server
+repository is build tooling; a shell script inside a skill directory is code the
+skill *tells an agent to run*. Same file extension, different thing. Collecting
+them per-skill keeps their findings attributable to the skill that carries them
+and keeps every unrelated `Makefile` helper out of the scan. (`.py`, `.js` and
+`.ts` bundled in a skill are read here **and** globbed as `SourceFile`s, so
+MCP008 and MCP010 already see them; shell was the language nothing covered.)
+
+**Why a script that will not read is not `unreadable`.** That channel exists for
+a file whose *name* declared what it is and which then would not parse (§16.6).
+A helper script never claimed to be anything, and one unreadable helper does not
+make the skill's own result untrustworthy.
+
+SKILL004 then gained the shape the evidence named: a **fetch that writes to
+disk** paired with a **later execution of that same filename**, matched on the
+basename. Precision rests entirely on the filename matching in both halves —
+downloading a file you never run, and running a script the skill ships, are both
+ordinary and both stay silent.
+
+| | before | after |
+|---|---|---|
+| SKILL-INJECT, all 152 composed skills | 6 (3.9%) | **9 (5.9%)** |
+| Real skills — clean corpus, `monday`, `awslabs`, `n8n` (60 skills) | 0 findings | **0 findings** |
+
+The corpus case `skillinject-download-and-execute` flipped from a known miss to
+a detection, and the recall harness reported it as *"detection improved — update
+EXPECTED.json"* rather than as a regression, which is the §8.8.2 fix earning its
+place.
+
+**5.9% is still a bad number, and it is meant to stay visible.** The surface was
+the part that could be built without a judgement call. The remaining 143 misses
+are mostly not fetch-and-run at all: `rm -rf ./* ../*`, an unbounded `curl` loop,
+a Python helper that POSTs files to a remote endpoint, and — the largest group by
+far — plain-language instructions in the body with no script behind them. Those
+need either new sinks (a shell equivalent of MCP008/MCP010, which is a rule with
+its own false-positive work) or purpose-mismatch detection, which §8.10.2 still
+declines to solve with a pattern.
 
 ---
 

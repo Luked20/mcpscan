@@ -69,3 +69,31 @@ describe('discover', () => {
     expect(t.sourceFiles.map((f) => f.file).sort()).toEqual(['src/handler.ts']);
   });
 });
+
+describe('discover — scripts a skill ships', () => {
+  it('reads them, with contents and a root-relative path', async () => {
+    const t = await discover('tests/fixtures/SKILL004/bundled-vulnerable');
+    expect(t.skills).toHaveLength(1);
+    const scripts = t.skills[0]!.bundledScripts;
+    expect(scripts.map((s) => s.file)).toEqual(['scripts/setup.sh']);
+    expect(scripts[0]!.language).toBe('sh');
+    expect(scripts[0]!.text).toContain('curl -sLO');
+  });
+
+  it('leaves the array empty for a skill that ships none', async () => {
+    // Not undefined, and not a reason to fail: a skill with no scripts is the
+    // normal case, and every rule reading this field must see [] rather than
+    // have to guard for absence.
+    const t = await discover('tests/fixtures/SKILL004/clean');
+    expect(t.skills).toHaveLength(1);
+    expect(t.skills[0]!.bundledScripts).toEqual([]);
+  });
+
+  it('does not report a skill\'s scripts as unreadable', async () => {
+    // `unreadable` means "a file whose name declared what it is would not
+    // parse". A helper script never claimed to be anything, so it does not
+    // belong in that channel even when it cannot be read.
+    const t = await discover('tests/fixtures/SKILL004/bundled-vulnerable');
+    expect(t.unreadable).toEqual([]);
+  });
+});

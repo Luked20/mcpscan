@@ -21,6 +21,17 @@ function locateInBody(skill: SkillDefinition, offset: number, length = 0): Sourc
   };
 }
 
+/**
+ * The same mapping for a file the skill ships, where the offset is already
+ * absolute — no `bodyOffsetLine` shift, because there is no frontmatter above it.
+ */
+function locateInFile(file: string, text: string, offset: number, length = 0): SourceLocation {
+  const lineStarts = createLineIndex(text);
+  const start = offsetToPosition(lineStarts, offset, text.length);
+  const end = offsetToPosition(lineStarts, offset + length, text.length);
+  return { file, line: start.line, column: start.column, endLine: end.line, endColumn: end.column };
+}
+
 const EXCERPT_MAX = 120;
 
 /** Truncates by code point, never by UTF-16 code unit, so a surrogate pair is never split. */
@@ -67,6 +78,106 @@ const FULL_SHA_RE = /^[0-9a-f]{40}$/i;
  * supply-chain one. Filed under this rule it was simply wrong.
  */
 const DOC_EXTENSION_RE = /\.(?:md|markdown|txt|rst|adoc)$/i;
+
+/**
+ * The two-step form: fetch a remote file to disk, then execute *that same file*.
+ *
+ * `PIPE_TO_SHELL_RE` above only sees `curl … | sh` on one line. SKILL-INJECT's
+ * first payload is `curl -sLO http://…/patch1` followed by `bash patch1` — the
+ * commoner shape in the wild, and one this rule missed entirely (SPEC §8.10.1).
+ *
+ * Precision comes from requiring the SAME filename in both halves, not from the
+ * wording. A skill that downloads a data file it never runs does not match; a
+ * skill that runs a script it ships (rather than one it just fetched) does not
+ * match either. Both of those are common and legitimate, and both stay silent.
+ *
+ * Note this is the un-remediated form of this rule's own advice: "download to a
+ * file, review it, pin it by SHA, execute the verified copy" is safe precisely
+ * because a human reads the file in between. Fetching and executing in the same
+ * breath skips that step while looking like it took it.
+ */
+const CURL_OUTPUT_RE = /\bcurl\b[^\n;&|]*?(?:-o|--output)\s+(?:'([^'\n]+)'|"([^"\n]+)"|([^\s'"]+))/g;
+const CURL_REMOTE_NAME_RE = /\bcurl\b[^\n;&|]*?(?:-[a-zA-Z]*O[a-zA-Z]*|--remote-name)\b[^\n;&|]*/g;
+const WGET_OUTPUT_RE = /\bwget\b[^\n;&|]*?(?:-O|--output-document(?:=|\s+))\s*(?:'([^'\n]+)'|"([^"\n]+)"|([^\s'"]+))/g;
+const WGET_PLAIN_RE = /\bwget\b(?!\s*-O\b)[^\n;&|]*/g;
+
+/** A URL inside a fetch command, used to derive the filename `-O` implies. */
+const URL_IN_COMMAND_RE = /https?:\/\/[^\s'"`;&|)]+/;
+
+/** Interpreters that execute a path handed to them, plus the bare `./script` form. */
+const EXECUTES_FILE_RE =
+  /(?:\b(?:ba|z|k)?sh\b|\bpython3?\b|\bnode\b|\bperl\b|\bruby\b|\bsource\b|^\s*\.\s|\.\/)\s*([^\s'"`;&|)]+)/gm;
+
+/** `foo/bar/baz.sh?x=1` -> `baz.sh`. Empty when the URL ends in a slash. */
+function urlBasename(url: string): string {
+  const path = url.split(/[?#]/)[0] ?? '';
+  const last = path.split('/').filter((p) => p.length > 0).pop() ?? '';
+  return last;
+}
+
+interface FetchedFile {
+  /** The name the fetch writes to disk. */
+  name: string;
+  index: number;
+  command: string;
+}
+
+/** Every "fetch a remote file to disk" in `text`, with the filename it produces. */
+function findFetchesToFile(text: string): FetchedFile[] {
+  const out: FetchedFile[] = [];
+
+  for (const re of [CURL_OUTPUT_RE, WGET_OUTPUT_RE]) {
+    for (const m of text.matchAll(re)) {
+      if (m.index === undefined) continue;
+      const name = m[1] ?? m[2] ?? m[3];
+      // `-o -` writes to stdout, so nothing lands on disk to execute later.
+      if (!name || name === '-') continue;
+      out.push({ name, index: m.index, command: m[0] });
+    }
+  }
+
+  // `curl -O <url>` and bare `wget <url>` both name the file after the URL.
+  for (const re of [CURL_REMOTE_NAME_RE, WGET_PLAIN_RE]) {
+    for (const m of text.matchAll(re)) {
+      if (m.index === undefined) continue;
+      const url = URL_IN_COMMAND_RE.exec(m[0])?.[0];
+      if (!url) continue;
+      const name = urlBasename(url);
+      if (!name) continue;
+      out.push({ name, index: m.index, command: m[0] });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * A fetch-to-file whose filename is later handed to an interpreter.
+ *
+ * Matching is on the basename, so `bash ./patch1` satisfies a fetch that wrote
+ * `patch1`, and a path like `scripts/patch1` still matches `patch1`.
+ */
+function findDownloadThenExecute(text: string): Array<{ fetch: FetchedFile; exec: string; index: number }> {
+  const fetches = findFetchesToFile(text);
+  if (fetches.length === 0) return [];
+
+  const out: Array<{ fetch: FetchedFile; exec: string; index: number }> = [];
+  for (const m of text.matchAll(EXECUTES_FILE_RE)) {
+    if (m.index === undefined) continue;
+    const target = m[1];
+    if (!target) continue;
+    const targetBase = target.split('/').pop() ?? target;
+    for (const fetch of fetches) {
+      // The execution has to come after the download; the reverse order is
+      // running a file that happens to share a name, not running what was fetched.
+      if (m.index <= fetch.index) continue;
+      if ((fetch.name.split('/').pop() ?? fetch.name) !== targetBase) continue;
+      out.push({ fetch, exec: m[0].trim(), index: m.index });
+      break;
+    }
+  }
+  return out;
+}
 
 /** `owner/repo/ref/path...` — the third path segment is the ref. */
 function extractRef(url: string): string | undefined {
@@ -137,6 +248,78 @@ export const SKILL004 = {
           'Pin the URL to a full 40-character commit SHA, or download to a file, review it, and ' +
           'execute the verified copy.',
         evidence: truncate(trimmed),
+      });
+    }
+
+    // The same three shapes, in every file the skill ships. A skill's payload is
+    // routinely not in SKILL.md at all: the body says "run backup.sh from this
+    // skills scripts directory" -- indistinguishable from real documentation --
+    // and the script fetches and runs a remote file. See SPEC 8.10.1.
+    for (const script of skill.bundledScripts) {
+      const where = (offset: number, length: number) => locateInFile(script.file, script.text, offset, length);
+
+      for (const m of script.text.matchAll(PIPE_TO_SHELL_RE)) {
+        if (m.index === undefined) continue;
+        findings.push({
+          location: where(m.index, m[0].length),
+          message:
+            `Skill "${skill.name}" ships \`${script.file}\`, which downloads content and pipes it ` +
+            `directly into a shell: \`${truncate(m[0])}\`. Whatever the remote host serves at run ` +
+            'time gets executed verbatim, and it need not be what it served when the skill was reviewed.',
+          remediation:
+            'Download the script to a file, review it, pin it by commit SHA, and execute the verified ' +
+            'copy. For releases, check the published checksum.',
+          evidence: truncate(m[0]),
+        });
+      }
+
+      for (const m of script.text.matchAll(PIPE_TO_POWERSHELL_RE)) {
+        if (m.index === undefined) continue;
+        findings.push({
+          location: where(m.index, m[0].length),
+          message:
+            `Skill "${skill.name}" ships \`${script.file}\`, which downloads content and pipes it ` +
+            `directly into PowerShell: \`${truncate(m[0])}\`. Whatever the remote host serves at run ` +
+            'time gets executed verbatim, and it need not be what it served when the skill was reviewed.',
+          remediation:
+            'Download the script to a file, review it, pin it by commit SHA, and execute the verified ' +
+            'copy. For releases, check the published checksum.',
+          evidence: truncate(m[0]),
+        });
+      }
+
+      for (const hit of findDownloadThenExecute(script.text)) {
+        findings.push({
+          location: where(hit.fetch.index, hit.fetch.command.length),
+          message:
+            `Skill "${skill.name}" ships \`${script.file}\`, which downloads a file and then executes ` +
+            `it: \`${truncate(hit.fetch.command.trim())}\` writes "${hit.fetch.name}", and \`${truncate(hit.exec)}\` ` +
+            'runs it. Nothing reads the file in between, so whatever the remote host serves at run time ' +
+            'is executed as-is.',
+          remediation:
+            'Review the downloaded file before running it, and pin what you fetch by commit SHA or ' +
+            'verify it against a published checksum. If the code is meant to be part of the skill, ' +
+            'ship it in the skill instead of fetching it.',
+          evidence: truncate(hit.fetch.command.trim()),
+        });
+      }
+    }
+
+    // Also in the body itself: a fenced block there is instructions the agent
+    // follows, and the two-step form is no safer for being written in markdown.
+    for (const hit of findDownloadThenExecute(skill.body)) {
+      findings.push({
+        location: locateInBody(skill, hit.fetch.index, hit.fetch.command.length),
+        message:
+          `Skill "${skill.name}" tells the agent to download a file and then execute it: ` +
+          `\`${truncate(hit.fetch.command.trim())}\` writes "${hit.fetch.name}", and \`${truncate(hit.exec)}\` ` +
+          'runs it. Nothing reads the file in between, so whatever the remote host serves at run time ' +
+          'is executed as-is.',
+        remediation:
+          'Review the downloaded file before running it, and pin what you fetch by commit SHA or ' +
+          'verify it against a published checksum. If the code is meant to be part of the skill, ' +
+          'ship it in the skill instead of fetching it.',
+        evidence: truncate(hit.fetch.command.trim()),
       });
     }
 

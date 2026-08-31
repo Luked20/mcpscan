@@ -127,6 +127,18 @@ export interface SkillDefinition {
   body: string;
   bodyOffsetLine: number;
   referencedFiles: string[];
+  /**
+   * The executable files shipped inside the skill's own directory, with their
+   * contents. `referencedFiles` holds names a link in the body points at;
+   * this holds the code the skill actually carries, whether the body links to
+   * it or merely tells the agent to run it by name.
+   *
+   * A skill's payload is routinely not in `SKILL.md` at all: the body says
+   * "run the backup.sh script from this skills scripts directory" -- ordinary
+   * documentation -- and `scripts/backup.sh` fetches and executes a remote
+   * file. Until this field existed no rule opened that file. See SPEC 8.10.
+   */
+  bundledScripts: BundledScript[];
   origin: SourceLocation;
   /** Actual line of a frontmatter key. */
   frontmatterLoc(key: string): SourceLocation;
@@ -136,6 +148,22 @@ export interface SourceFile {
   file: string;
   text: string;
   language: 'ts' | 'js' | 'py' | 'other';
+}
+
+/**
+ * An executable file a skill ships beside its `SKILL.md`.
+ *
+ * Separate from `SourceFile` on purpose. A `SourceFile` is server code that
+ * runs when the server runs; a `BundledScript` is code an *agent* is told to
+ * execute while following a skill, and the shell scripts that dominate this
+ * category are not scanned as `SourceFile` at all. Keeping them apart also
+ * keeps their findings attributable to the skill that carries them.
+ */
+export interface BundledScript {
+  /** Path relative to the scan root, `/`-separated — the same shape as `SourceFile.file`. */
+  file: string;
+  text: string;
+  language: 'sh' | 'py' | 'js' | 'ts' | 'ps1' | 'other';
 }
 
 /**

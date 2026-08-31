@@ -8,7 +8,7 @@ import { collectSkill } from './skill-md.js';
 import { collectSource, isTestFile } from './source.js';
 import { collectSuppressions } from './suppression.js';
 import type {
-  PromptDefinition, ResourceDefinition, ScanTarget, ServerDefinition, SkillDefinition, SourceFile,
+  BundledScript, PromptDefinition, ResourceDefinition, ScanTarget, ServerDefinition, SkillDefinition, SourceFile,
   Suppression, ToolDefinition, UnreadableFile,
 } from '../core/types.js';
 
@@ -20,6 +20,70 @@ const CONFIG_BASENAMES = new Set(['.mcp.json', 'mcp.json', 'claude_desktop_confi
 
 /** Extensions routed to the source collector (MCP008) rather than the manifest collector. */
 const SOURCE_EXTENSIONS = new Set(['.ts', '.js', '.mjs', '.cjs', '.mts', '.cts', '.py']);
+
+/**
+ * Extension -> language for the executables a skill ships beside its SKILL.md.
+ *
+ * `.sh` and its relatives are here and nowhere else in the scanner: a shell
+ * script in a server repository is build tooling, but a shell script inside a
+ * skill directory is code the skill tells an agent to run. That difference is
+ * why these are collected per-skill rather than added to the global source glob.
+ */
+const BUNDLED_SCRIPT_LANGUAGES: Record<string, BundledScript['language']> = {
+  '.sh': 'sh', '.bash': 'sh', '.zsh': 'sh',
+  '.ps1': 'ps1',
+  '.py': 'py',
+  '.js': 'js', '.mjs': 'js', '.cjs': 'js',
+  '.ts': 'ts', '.mts': 'ts', '.cts': 'ts',
+};
+
+/**
+ * Per-skill caps. A skill is a small documentation bundle; a directory holding
+ * hundreds of executables is not one, and reading it would be a way to make a
+ * scan hang on a path the user did not mean to point at.
+ */
+const MAX_BUNDLED_SCRIPTS = 50;
+
+/**
+ * Reads the executables a skill ships. Best-effort throughout: a script that
+ * cannot be read is skipped rather than failing the skill, because the skill
+ * itself parsed and its own findings are still worth reporting.
+ *
+ * Deliberately NOT reported as `unreadable`. That channel is for a file whose
+ * *name* declared what it is and which then would not parse; a script here was
+ * never claimed to be anything, and one unreadable helper does not make the
+ * skill's own result untrustworthy.
+ */
+async function readBundledScripts(skillFile: string, base: string): Promise<BundledScript[]> {
+  const dir = dirname(skillFile);
+  let found: string[];
+  try {
+    found = await glob(['**/*.{sh,bash,zsh,ps1,py,js,mjs,cjs,ts,mts,cts}'], {
+      cwd: dir, ignore: IGNORE, dot: true, absolute: true,
+    });
+  } catch {
+    return [];
+  }
+
+  const out: BundledScript[] = [];
+  for (const file of found.sort()) {
+    if (out.length >= MAX_BUNDLED_SCRIPTS) break;
+    const language = BUNDLED_SCRIPT_LANGUAGES[extname(file).toLowerCase()];
+    if (!language) continue;
+    try {
+      const { size } = await stat(file);
+      if (size > MAX_BYTES) continue;
+      out.push({
+        file: relative(base, file).split('\\').join('/'),
+        text: await readFile(file, 'utf8'),
+        language,
+      });
+    } catch {
+      continue;
+    }
+  }
+  return out;
+}
 
 /**
  * `root` can be a directory or a file. The CLI advertises both
@@ -71,7 +135,7 @@ export async function discover(root: string): Promise<ScanTarget> {
     suppressions.push(...collectSuppressions(rel, text));
 
     if (basename(file) === 'SKILL.md') {
-      const skill = collectSkill(rel, text);
+      const skill = collectSkill(rel, text, await readBundledScripts(file, base));
       if (skill) skills.push(skill);
       // The filename declared this is a skill. If it will not parse, the scanner
       // cannot vouch for it, and saying nothing would read as "scanned, clean".
