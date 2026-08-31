@@ -105,6 +105,9 @@ Todo arquivo do projeto aqui segue a mesma regra: **recebe texto, devolve
 estrutura, nunca lê disco e nunca lança exceção.** Isso os torna triviais de
 testar — você passa uma string e confere a saída.
 
+As duas exceções são o `index.ts`, que é quem toca o disco, e o `connect.ts`,
+que sobe um processo. Ambas estão marcadas na tabela.
+
 | Arquivo | O que faz |
 |---|---|
 | `index.ts` | O varredor. Acha os arquivos e manda cada um para o coletor certo. É o único que toca o disco. |
@@ -113,6 +116,7 @@ testar — você passa uma string e confere a saída.
 | `skill-md.ts` | Lê um `SKILL.md` (frontmatter YAML + corpo) → `SkillDefinition` |
 | `source.ts` | Lê `.ts`/`.js`/`.py` → `SourceFile` (só classifica a linguagem e guarda o texto) |
 | `suppression.ts` | Acha os comentários `mcpscan-disable-next-line` em qualquer arquivo |
+| `connect.ts` | **Não lê arquivo**: sobe um servidor MCP, fala o handshake e pergunta as tools dele (`--connect`) |
 
 **Como o `index.ts` decide o destino de cada arquivo:**
 

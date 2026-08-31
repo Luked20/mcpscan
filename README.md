@@ -113,10 +113,37 @@ mcpscan [path]                       # default: '.'
   --rules <ids>      run only these rules (comma-separated)
   --disable <ids>    turn off these rules (comma-separated)
   --baseline <file>  ignore findings already listed in this file
+  --connect <cmd>    start an MCP server and scan the tools it reports
   --config <file>    config file (default: mcpscan.config.json if present)
   --quiet            print findings only; nothing at all when a scan is clean
   --no-color         disable colors
 ```
+
+## Scanning a server's actual tools
+
+Pointing mcpscan at a repository finds its configs, its skills and its source —
+but usually **not its tools**, because a real MCP server builds them in code at
+startup and there is no manifest on disk to read. That leaves the tool-poisoning
+and tool-shadowing rules with nothing to run on, and the report will tell you so.
+
+To scan them, let mcpscan start the server and ask:
+
+```bash
+npx mcpscan . --connect "npx -y firecrawl-mcp"
+```
+
+It speaks the MCP handshake, reads `tools/list`, and scans those tools alongside
+everything it found on disk. The server inherits your environment, so an API key
+is passed the way any client passes one:
+
+```bash
+FIRECRAWL_API_KEY=fc-… npx mcpscan . --connect "npx -y firecrawl-mcp"
+```
+
+**This runs the server's code**, which is why it is opt-in and never implied.
+Findings that came from it are marked `"provenance": "live"`. If the server
+fails to start or refuses, that is exit 2 with its stderr attached — never a
+clean report for a server that never ran.
 
 ## Adopting it on an existing repo
 

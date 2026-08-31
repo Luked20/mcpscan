@@ -425,7 +425,7 @@ mcpscan [path]                       # default: '.'
   --quiet
 ```
 
-Everything above is implemented except `--connect`, which is out of MVP scope (§7.1).
+Everything above is implemented, `--connect` included — see §9.6 for why it stopped being out of scope.
 
 ### 9.2 Precedence
 
@@ -484,6 +484,58 @@ mcpscan --baseline mcpscan-baseline.json
   accepted finding back on at once, which reads as the scanner having found new problems.
 - Baseline is applied *after* suppressions, so a finding with a written justification is not also
   counted as untriaged backlog.
+
+### 9.6 `--connect`
+
+```bash
+mcpscan --connect "npx -y firecrawl-mcp"
+```
+
+Starts the server, speaks the MCP handshake, and scans the tools it reports.
+
+**This was specified as out of MVP scope, and the scope was wrong.** Every
+other collector reads files, which works for client configs, `SKILL.md` and
+server source — and does not work for the thing this scanner leads with. A real
+MCP server builds its tools at startup from zod or pydantic, so there is no
+manifest on disk. Scanning four real repositories made the hole measurable:
+
+| Repository | tools from disk | tools via `--connect` |
+|---|---|---|
+| `awslabs/mcp` | 0 | — |
+| `mondaycom/mcp` | 0 | — |
+| `czlonkowski/n8n-mcp` | 23 | — |
+| `firecrawl-mcp-server` | 0 | **27** |
+
+Three of four yielded nothing, which means MCP001–MCP006 — tool poisoning,
+schema poisoning, tool shadowing — had no input in ordinary use. On firecrawl
+the same scan goes from no findings to one, purely by asking the server instead
+of the filesystem.
+
+The mechanism was never speculative: `scripts/capture-corpus.mjs` has used it
+all along to build the corpus, and the nine MCP004 false positives on
+`server-filesystem` (§7.4) came from tools captured exactly this way. It simply
+was not a command.
+
+**It runs the target's code**, which is why it is a flag and never implied. The
+server inherits this process's environment, so an API key is passed the way a
+real client passes one. Findings from it carry `provenance: 'live'` — the field
+`Finding` has always declared and nothing could previously produce.
+
+**A server that will not start, times out, or refuses `tools/list` is exit 2**,
+with its stderr attached. A clean report for a server that never ran is the
+false-clean §16.6 exists to prevent.
+
+Live tools are added to whatever the path scan found, not substituted for it, so
+one run covers a server's source and its live surface together. They are counted
+separately in `stats.liveTools`.
+
+### 9.7 The zero-tools hint
+
+When a scan reads source files or client configs but **no tools at all**, the
+`pretty` report says so and points at `--connect`. This is not a finding; it is
+the difference between "looked and found nothing" and "the interesting half was
+never looked at". It went unnoticed for four repositories precisely because the
+report said only "No problems found".
 
 ### 9.5 `--quiet`
 

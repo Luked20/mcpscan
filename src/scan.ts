@@ -1,5 +1,6 @@
 import { statSync } from 'node:fs';
 import { discover } from './collect/index.js';
+import { connectAndListTools } from './collect/connect.js';
 import { runRules, sortFindings } from './core/engine.js';
 import { applySuppressions } from './core/suppress.js';
 import { fingerprint } from './core/fingerprint.js';
@@ -21,6 +22,12 @@ export interface ScanOptions {
    * empty one (see `report/baseline.ts`).
    */
   baseline?: ReadonlySet<string>;
+  /**
+   * `--connect`: a command that starts an MCP server, which is then asked for
+   * its tools. Runs the target's code, so it is never implied -- the caller
+   * passing this is the consent.
+   */
+  connect?: string;
 }
 
 export interface ScanStats {
@@ -40,6 +47,8 @@ export interface ScanStats {
   suppressed: number;
   /** Findings dropped because the baseline already lists them. Reported, never silent. */
   baselined: number;
+  /** Tools obtained by starting the server rather than by reading a file. */
+  liveTools: number;
 }
 
 export interface ScanResult {
@@ -50,7 +59,7 @@ export interface ScanResult {
 }
 
 const emptyStats = (): ScanStats =>
-  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0, baselined: 0 });
+  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0, baselined: 0, liveTools: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
@@ -94,6 +103,19 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
 
   try {
     const target = await discover(opts.path);
+
+    // Live tools join the same `target.tools` the file collectors fill, so
+    // every rule treats them identically -- including the `appliesTo: 'target'`
+    // ones, which can then compare a live tool against a file-based one.
+    let liveFile: string | undefined;
+    if (opts.connect !== undefined) {
+      const connected = await connectAndListTools({ command: opts.connect });
+      // A server that would not start is "could not look", not "found nothing".
+      if (typeof connected === 'string') return fail(connected);
+      liveFile = connected.file;
+      target.tools.push(...connected.tools);
+    }
+
     const stats: ScanStats = {
       filesExamined: target.filesExamined,
       filesWithTools: new Set(target.tools.map((t) => t.origin.file)).size,
@@ -104,6 +126,9 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       unreadable: target.unreadable.length,
       suppressed: 0,
       baselined: 0,
+      liveTools: liveFile === undefined
+        ? 0
+        : target.tools.filter((t) => t.origin.file === liveFile).length,
     };
 
     if (!hasSubjects(target)) {
@@ -116,6 +141,16 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
 
     const run = runRules(target, active, HELP_BASE_URI);
     const { failures } = run;
+
+    // `Finding.provenance` has always been typed 'static' | 'live'; until
+    // --connect existed nothing could produce the second. A finding is live
+    // when it sits in the synthetic document the server's own tools/list
+    // produced, which is why that document's name must not collide with a path.
+    if (liveFile !== undefined) {
+      for (const f of run.findings) {
+        if (f.location.file === liveFile) f.provenance = 'live';
+      }
+    }
 
     // Suppressions are applied against every *registered* rule id, not just the
     // ones active this run: a suppression naming a rule `--disable` turned off

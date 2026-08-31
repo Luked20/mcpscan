@@ -26,6 +26,7 @@ const program = new Command()
   .option('--rules <ids>', 'run only these rules (comma-separated)')
   .option('--disable <ids>', 'turn off these rules (comma-separated)')
   .option('--baseline <file>', 'ignore findings already listed in this file')
+  .option('--connect <command>', 'start an MCP server and scan the tools it reports (runs its code)')
   .option('--config <file>', `config file (default: ${DEFAULT_CONFIG_FILE} if present)`)
   .option('--quiet', 'print findings only; nothing at all when a scan is clean')
   .option('--no-color', 'disable colors');
@@ -91,6 +92,7 @@ async function main(): Promise<0 | 1 | 2> {
     ...(rules ? { rules } : {}),
     ...(disable ? { disable } : {}),
     ...(baseline ? { baseline } : {}),
+    ...(opts['connect'] ? { connect: String(opts['connect']) } : {}),
   });
 
   // The error goes to stderr, but the report is still emitted: with a broken

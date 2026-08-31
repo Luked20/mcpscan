@@ -43,7 +43,7 @@ export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   const c = (fn: (s: string) => string, s: string) => (opts.color ? fn(s) : s);
   const {
     filesExamined, filesWithTools, tools, servers, skills, sourceFiles,
-    unreadable, suppressed, baselined,
+    unreadable, suppressed, baselined, liveTools,
   } = opts.stats;
 
   const header =
@@ -68,9 +68,23 @@ export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
     return lines.join('\n');
   }
 
+  // A scan that found no tools at all, in a tree that plainly holds an MCP
+  // server, has not exercised MCP001-MCP006 — the tool-poisoning and shadowing
+  // rules this scanner leads with. Real servers build their tools in code at
+  // startup, so there is no manifest to read: `awslabs/mcp`, `mondaycom/mcp`
+  // and `firecrawl-mcp-server` all yield zero. Saying only "No problems found"
+  // there is the same false comfort as a clean report on a path that does not
+  // exist, and it went unnoticed for exactly that reason.
+  const missingTools = tools === 0 && liveTools === 0 && (sourceFiles > 0 || servers > 0);
+  const hint = 'No tools were read. MCP servers usually build their tools in code, so there is no ' +
+    'manifest on disk — rerun with --connect "<command that starts the server>" to scan the tools ' +
+    'it actually serves.';
+
   if (findings.length === 0) {
     if (opts.quiet === true) return '';
-    lines.push(c(pc.green, 'No problems found.'), '');
+    lines.push(c(pc.green, 'No problems found.'));
+    if (missingTools) lines.push('', c(pc.yellow, hint));
+    lines.push('');
     return lines.join('\n');
   }
 
@@ -82,6 +96,8 @@ export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
     .filter(([, n]) => n > 0)
     .map(([s, n]) => `${n} ${s}`)
     .join(' · ');
-  lines.push(`  ${counts}`, '');
+  lines.push(`  ${counts}`);
+  if (missingTools) lines.push('', c(pc.yellow, hint));
+  lines.push('');
   return lines.join('\n');
 }
