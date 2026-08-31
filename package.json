@@ -36,7 +36,8 @@
     "mcpscan": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "docs/rules"
   ],
   "engines": {
     "node": ">=20"

@@ -2,12 +2,16 @@ node_modules
 dist
 *.sarif
 
-# Internal design record and per-rule notes: kept in the working tree, not
-# published. The registry test that requires docs/rules/<ID>.md skips (visibly)
-# when the directory is absent, and findings link to the README's rules table
-# instead — see src/core/help.ts.
-docs/
+# Only the per-rule pages are published. They are product documentation and
+# every finding's helpUri links to them (see src/core/help.ts).
+#
+# Everything else under docs/ is the internal record — the design spec, the
+# architecture notes, planning documents — and is deliberately excluded.
+# Written as "ignore all, un-ignore rules/" so that a new internal document
+# dropped in docs/ is excluded by default rather than published by accident.
+docs/*
+!docs/rules/
 
-# Assistant instructions and scratch: local only.
+# Assistant instructions and project strategy notes: local only.
 CLAUDE.MD
 CLAUDE.md
