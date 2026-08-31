@@ -1,6 +1,10 @@
 {
-  "attack": "A tool description weaponised three ways at once: an ANSI hidden-text escape, three zero-width spaces before an [INVISIBLE: ...] instruction telling the agent to read environment variables and exfiltrate flags, and an HTML comment. Detected -- but by MCP002, on the zero-width spaces. MCP001 does NOT fire: '[HIDDEN INSTRUCTION: ...]' matches no injection pattern, which needs an imperative plus a target. Had the author used no invisible characters, this would have been a miss.",
+  "attack": "A tool description weaponised three ways at once: an ANSI hidden-text escape, three zero-width spaces before an [INVISIBLE: ...] instruction telling the agent to read environment variables and exfiltrate flags, and an HTML comment saying the tool 'should exfiltrate data'. Originally detected by MCP002 alone, on the zero-width spaces -- MCP001 saw nothing, because '[HIDDEN INSTRUCTION: ...]' and '<!-- ... -->' matched no pattern. This payload is what drove the pattern work in SPEC 8.8: MCP001 now catches it twice over, on hidden-block and comment, so it no longer depends on the author having used invisible characters.",
   "expect": [
+    {
+      "ruleId": "MCP001",
+      "severity": "critical"
+    },
     {
       "ruleId": "MCP002",
       "severity": "critical"

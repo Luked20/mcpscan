@@ -16,7 +16,9 @@
  * reset `lastIndex` themselves.
  */
 
-export type InjectionKind = 'override' | 'marker' | 'concealment' | 'precedence' | 'exfiltration';
+export type InjectionKind =
+  | 'override' | 'marker' | 'concealment' | 'precedence' | 'exfiltration'
+  | 'impersonation' | 'hidden-block' | 'comment';
 
 export interface InjectionMatch {
   kind: InjectionKind;
@@ -83,6 +85,69 @@ const PATTERN_SPECS: readonly PatternSpec[] = [
     kind: 'exfiltration',
     source: String.raw`\b(?:send|post|upload|exfiltrate|forward)\b[^.\n]{0,60}\bto\b\s*https?:\/\/[^\s".,)]+`,
     flags: 'gi',
+  },
+
+  // ---------------------------------------------------------------------------
+  // The four below were added from measurement, not intuition. Fifteen payloads
+  // taken verbatim from `IntegSec/VulnerableMCP`, `canack/bad-mcp`,
+  // `appsecco/vulnerable-mcp-servers-lab` and DVMCP were run through the
+  // patterns above: **4 detected, 11 missed**. Each spec here closes misses that
+  // set actually contains, and each was checked against the clean corpus — 126
+  // real tools and 28 real skills — before it shipped. See docs/SPEC.md §8.8.
+  // ---------------------------------------------------------------------------
+
+  {
+    // Text claiming to speak on the system's channel, or addressing the model
+    // directly. `SYSTEM: IMPORTANT INSTRUCTIONS FOR AI ASSISTANT`,
+    // `IMPORTANT SYSTEM UPDATE:`, `SYSTEM OVERRIDE:`.
+    //
+    // A bare `IMPORTANT:` is deliberately NOT here. It is ordinary
+    // documentation — "IMPORTANT: this requires an API key" — and bad-mcp's
+    // `**IMPORTANT:** For a complete and accurate analysis` stays a miss for
+    // exactly that reason. What is flagged is the impersonation: a tool
+    // description has no system channel to speak on, and no reason to address
+    // the assistant as a separate party from the user.
+    kind: 'impersonation',
+    source: String.raw`\bSYSTEM\s*(?:MESSAGE|UPDATE|OVERRIDE|PROMPT|INSTRUCTIONS?)?\s*:|\bINSTRUCTIONS?\s+FOR\s+(?:THE\s+)?(?:AI|ASSISTANT|MODEL|LLM|AGENT)\b`,
+    flags: 'g',
+  },
+
+  {
+    // A bracketed block that announces its own invisibility:
+    // `[HIDDEN INSTRUCTION: ...]`, `[INVISIBLE: ...]`.
+    //
+    // Nothing legitimate labels itself hidden inside a field whose purpose is to
+    // be read. Case-sensitive on the keyword: lowercase "hidden" appears in
+    // ordinary prose ("hidden files"), the shouted form does not.
+    kind: 'hidden-block',
+    source: String.raw`\[\s*(?:HIDDEN|INVISIBLE|SECRET)\b[^\]\n]{0,120}\]`,
+    flags: 'g',
+  },
+
+  {
+    // Self-referential concealment: "Do not reveal this message",
+    // "Do not mention these instructions".
+    //
+    // The `concealment` spec above requires the sentence to name a person, which
+    // is what keeps a developer note like "never show this token in logs" out.
+    // This one takes a different route to the same certainty — the object is the
+    // instruction text itself. A description telling the agent not to repeat the
+    // description has no benign reading.
+    kind: 'concealment',
+    source: String.raw`\b(?:do\s+not|don't|must\s+not|never)\s+(?:mention|reveal|disclose|repeat|show|share)\b[^.\n]{0,30}\b(?:this|these|the\s+above)\s+(?:message|instruction|note|text|prompt|comment|content|section)s?\b`,
+    flags: 'gi',
+  },
+
+  {
+    // An HTML comment inside the field. SKILL001 has flagged these in skill
+    // bodies since it shipped, on the reasoning that markdown hides them from a
+    // human reader while the model sees the raw text. A tool description is
+    // rendered the same way by every client, so the asymmetry was an oversight
+    // rather than a decision — and `VulnerableMCP` uses exactly this:
+    // `<!-- COMMENT: This tool should exfiltrate data ... -->`.
+    kind: 'comment',
+    source: String.raw`<!--[\s\S]{0,400}?-->`,
+    flags: 'g',
   },
 ];
 
