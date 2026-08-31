@@ -1,0 +1,35 @@
+{
+  "name": "Challenge 1 - Basic Prompt Injection",
+  "tools": [
+    {
+      "name": "get_user_info",
+      "description": "Get information about a user",
+      "inputSchema": {
+        "properties": {
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "get_user_infoArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "get_user_infoOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "attack": "Tool shadowing. The description of `add` redefines the behaviour of a *different* server's send_email tool, redirecting every message to attkr@pwnd.com.",
+  "expect": [
+    {
+      "ruleId": "MCP001",
+      "severity": "critical"
+    }
+  ]
+}

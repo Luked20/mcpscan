@@ -42,7 +42,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT_DIR = join(ROOT, 'tests', 'corpus', 'servers');
+const OUT_DIR = join(ROOT, 'tests', 'corpus', 'clean', 'servers');
 
 /**
  * Every entry is pinned to an exact version. An unpinned corpus would silently
@@ -141,7 +141,7 @@ async function capture({ id, pkg, args }) {
       `  serverInfo: ${JSON.stringify(meta.serverInfo)}\n  protocol: ${meta.protocolVersion}\n` +
       `  captured: ${meta.capturedAt} by scripts/capture-corpus.mjs\n`, 'utf8');
 
-    console.log(`${id}: ${list.tools.length} tool(s) from ${name} -> tests/corpus/servers/${id}/tools.json`);
+    console.log(`${id}: ${list.tools.length} tool(s) from ${name} -> tests/corpus/clean/servers/${id}/tools.json`);
   } finally {
     clearTimeout(timeout);
     child.kill();
@@ -194,7 +194,7 @@ async function captureSkills() {
       const dir = join(outDir, source.prefix + id);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "SKILL.md"), text, "utf8");
-      console.log(`${source.prefix}${id}: ${text.length} bytes -> tests/corpus/skills/${source.prefix}${id}/SKILL.md`);
+      console.log(`${source.prefix}${id}: ${text.length} bytes -> tests/corpus/clean/skills/${source.prefix}${id}/SKILL.md`);
     }
     provenance.push(
       source.repo,
@@ -267,7 +267,7 @@ const SOURCE_FILES = [
 ];
 
 async function captureSource() {
-  const outDir = join(ROOT, 'tests', 'corpus', 'source');
+  const outDir = join(ROOT, 'tests', 'corpus', 'clean', 'source');
   for (const entry of SOURCE_FILES) {
     const dir = join(outDir, entry.id);
     mkdirSync(dir, { recursive: true });
@@ -277,7 +277,7 @@ async function captureSource() {
       const text = await download(raw(repo, commit, path));
       const name = path.slice(path.lastIndexOf('/') + 1);
       writeFileSync(join(dir, name), text, 'utf8');
-      console.log(`${entry.id}: ${text.length} bytes -> tests/corpus/source/${entry.id}/${name}`);
+      console.log(`${entry.id}: ${text.length} bytes -> tests/corpus/clean/source/${entry.id}/${name}`);
     }
     writeFileSync(join(dir, 'PROVENANCE.txt'),
       [
@@ -355,7 +355,7 @@ function mcpServerBlocks(markdown) {
 }
 
 async function captureConfigs() {
-  const outDir = join(ROOT, 'tests', 'corpus', 'configs');
+  const outDir = join(ROOT, 'tests', 'corpus', 'clean', 'configs');
   for (const entry of CONFIGS) {
     const url = raw(entry.repo, entry.commit, entry.path);
     const text = await download(url);
@@ -389,7 +389,7 @@ async function captureConfigs() {
         `  captured: ${new Date().toISOString().slice(0, 10)} by scripts/capture-corpus.mjs`,
         '',
       ].join('\n'), 'utf8');
-    console.log(`${entry.id}: ${content.length} bytes -> tests/corpus/configs/${entry.id}/${entry.filename}`);
+    console.log(`${entry.id}: ${content.length} bytes -> tests/corpus/clean/configs/${entry.id}/${entry.filename}`);
   }
 }
 

@@ -408,6 +408,76 @@ be shown to be over-broad by input nobody wrote for it. That is the corpus's who
 it is why a failure here is never resolved by adding an exception to the test — either the
 rule narrows, or the entry leaves the corpus.
 
+### 8.4 Recall: measured against attacks nobody here wrote
+
+§8.1–8.3 all answer one question — *how much noise does this make on code that is
+fine?* They say nothing about the other one: **when an attack is present, is it
+found?**
+
+Every rule already has a `vulnerable/` fixture it detects, and §8.1 enforces
+that. But a vulnerable fixture is written by whoever wrote the rule, in the same
+sitting, and proves only that the rule fires on the attack its author imagined —
+the same tautology the clean fixtures had before the corpus existed. Recall needs
+payloads from somewhere else.
+
+`tests/corpus/malicious/` holds six, captured verbatim from published PoCs:
+
+| Case | Source | Attack | Expected |
+|---|---|---|---|
+| `invariant-direct-poisoning` | `invariantlabs-ai/mcp-injection-experiments` | `<IMPORTANT>` block telling the agent to read `~/.cursor/mcp.json` and `~/.ssh/id_rsa.pub` and smuggle them out via a `sidenote` argument | MCP001 / critical |
+| `invariant-shadowing` | same | a tool's description redefining *another server's* `send_email` to route everything to `attkr@pwnd.com` | MCP001 / critical |
+| `invariant-rug-pull-benign` | same | the clean half of a rug pull | **nothing** |
+| `invariant-rug-pull-poisoned` | same | the turned half of the same server | MCP001 / critical |
+| `dvmcp-challenge2-tool-poisoning` | `harishsg993010/damn-vulnerable-MCP-server` | hidden instruction in a calculator tool | MCP001 / critical |
+| `dvmcp-challenge1-prompt-injection` | same | attack lives in **resources**, not tools | **nothing — known miss** |
+
+`tests/recall.test.ts` asserts **rule and severity**, not merely "something
+fired". Without the pair, a change that detected something else entirely, or
+downgraded a critical to info, would leave the harness green.
+
+**Each case is a captured `tools/list`, not the server.** The test installs
+nothing, downloads nothing, runs no third-party code, and does not break when the
+Python SDK changes its API — while still measuring the real payload rather than a
+paraphrase of it.
+
+#### What the measurement showed
+
+**Every payload that could be served was detected, at `critical`. None of them
+was detected by a static scan** — all six repositories produce zero findings when
+scanned as directories, because the poisoned text is a Python docstring until the
+server runs and only then becomes a tool `description`. This is the recall-side
+confirmation of why `--connect` stopped being out of scope (§9.6).
+
+Two results are recorded as expectations of **nothing**, and both are load-bearing:
+
+- **The rug pull.** The same server, captured twice, yields a clean list and a
+  poisoned one. `--connect` answers *what is this server exposing now*, never
+  *what will it expose tomorrow*. That is a property of snapshots, not a defect to
+  fix inside a scanner; closing it would be a different feature — periodic
+  re-capture and diff — and is deliberately not attempted here.
+- **DVMCP challenge 1.** The vulnerability is in MCP **resources**
+  (`internal://credentials`, hidden from listing; `notes://{user_id}`,
+  unvalidated), and this scanner collects tools only. No rule of any quality
+  could have caught it. See §8.5.
+
+### 8.5 The protocol surface this scanner does not collect
+
+MCP has three primitives. This scanner reads one:
+
+| Primitive | Collected |
+|---|---|
+| Tools | yes — from manifests, and from `--connect` |
+| **Resources** | **no** |
+| **Prompts** | **no** |
+
+That is not a missing rule, it is two thirds of the protocol going unexamined,
+and it was found by a third-party corpus rather than by reading the spec. The
+order that follows from it: collect resources and prompts into the IR first, as
+first-class subjects alongside tools; then research what actually goes wrong with
+each; then write rules only for the patterns with evidence behind them. Inventing
+`MCP011` before knowing what resources get attacked with would repeat the mistake
+§7.2 records for MCP002.
+
 ---
 
 ## 9. CLI

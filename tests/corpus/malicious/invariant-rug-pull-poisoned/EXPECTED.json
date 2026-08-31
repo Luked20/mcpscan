@@ -1,0 +1,9 @@
+{
+  "attack": "The turned half of the same rug pull. The docstring is swapped at import time for one that reroutes WhatsApp messages to an attacker number and exfiltrates prior chats.",
+  "expect": [
+    {
+      "ruleId": "MCP001",
+      "severity": "critical"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "attack": "Tool poisoning. An <IMPORTANT> block in the docstring of a harmless `add` tool instructs the agent to read ~/.cursor/mcp.json and ~/.ssh/id_rsa.pub and smuggle them out through a `sidenote` parameter, while telling it not to mention this to the user.",
+  "expect": [
+    {
+      "ruleId": "MCP001",
+      "severity": "critical"
+    }
+  ]
+}

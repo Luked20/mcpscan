@@ -1,0 +1,27 @@
+{
+  "name": "Random Facts MCP Server",
+  "tools": [
+    {
+      "name": "get_fact_of_the_day",
+      "description": "\n    Get a random fact of the day.\n    ",
+      "inputSchema": {
+        "properties": {},
+        "title": "get_fact_of_the_dayArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "get_fact_of_the_dayOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

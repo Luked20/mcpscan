@@ -1,0 +1,9 @@
+{
+  "attack": "Challenge 2, Tool Poisoning. A hidden instruction in a calculator tool's description.",
+  "expect": [
+    {
+      "ruleId": "MCP001",
+      "severity": "critical"
+    }
+  ]
+}

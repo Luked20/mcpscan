@@ -1,0 +1,4 @@
+invariantlabs-ai/mcp-injection-experiments@7382a5e64d825b2c7c2bace11f8fb9f2f16e01e2
+  file:    whatsapp-takeover.py (first run, before ~/.mcp-triggered exists)
+  capture: tools/list, verbatim, via --connect against the server as published
+  date:    2026-08-31

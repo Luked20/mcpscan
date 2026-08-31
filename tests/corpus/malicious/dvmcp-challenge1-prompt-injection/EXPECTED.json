@@ -1,0 +1,4 @@
+{
+  "attack": "Challenge 1, Basic Prompt Injection. KNOWN MISS, and the reason it is committed. The vulnerability is not in a tool at all: it lives in MCP *resources* (internal://credentials, hidden from listing; notes://{user_id}, unvalidated input). This scanner collects tools only, so no rule of any quality could catch it. The expectation is empty on purpose -- it will start failing the day resources are collected, which is exactly when someone should come back and set it.",
+  "expect": []
+}

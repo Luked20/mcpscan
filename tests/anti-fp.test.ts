@@ -137,7 +137,9 @@ describe('anti-false-positive harness — regression corpus (SPEC §8.2)', () =>
   // rule is over-broad in a way I did not think of. Real manifests can, and
   // did — on its first run this corpus produced 13 `high` findings, all of
   // them false, and both are recorded in docs/SPEC.md §7.4.
-  const CORPUS_ROOT = 'tests/corpus';
+  // `clean/` only: tests/corpus/malicious/ holds captured attacks and is measured
+  // by the recall harness in tests/recall.test.ts, which asserts the opposite.
+  const CORPUS_ROOT = 'tests/corpus/clean';
 
   let result: Awaited<ReturnType<typeof scan>>;
   beforeAll(async () => {
