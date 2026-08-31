@@ -82,20 +82,35 @@ describe('recall harness — captured attacks (SPEC §8.4)', () => {
           // Rule *and* severity, not merely "something fired". Without the pair,
           // a future change that detects something else entirely — or downgrades
           // a critical to info — would leave this test green.
-          const actual = result.findings
-            .map((f) => ({ ruleId: f.ruleId, severity: f.severity }))
-            .sort((a, b) => a.ruleId.localeCompare(b.ruleId));
-          const wanted = [...expected.expect].sort((a, b) => a.ruleId.localeCompare(b.ruleId));
+          //
+          // Compared as SETS, not multisets. Recall asks "was this attack caught
+          // by rule X at severity Y", and a rule firing twice on one capture
+          // answers that no differently than firing once — a payload that trips
+          // two patterns at once is corroboration, not a second attack. Counting
+          // duplicates made the harness report a *strengthened* detection as a
+          // regression, which is the one thing it must never do.
+          const key = (e: { ruleId: string; severity: string }) => `${e.ruleId}/${e.severity}`;
+          const uniq = (es: ReadonlyArray<{ ruleId: string; severity: string }>) =>
+            [...new Set(es.map(key))].sort();
+
+          const actual = uniq(result.findings);
+          const wanted = uniq(expected.expect);
 
           if (JSON.stringify(actual) !== JSON.stringify(wanted)) {
+            const missing = wanted.filter((k) => !actual.includes(k));
+            const extra = actual.filter((k) => !wanted.includes(k));
             throw new Error(
               `${name} — ${expected.attack}\n` +
               `  expected: ${JSON.stringify(wanted)}\n` +
               `  actual:   ${JSON.stringify(actual)}\n` +
-              (wanted.length === 0
-                ? '  This case is recorded as a known miss. If the scanner now detects it, that is\n' +
-                  '  progress — update EXPECTED.json to lock the detection in.'
-                : '  A recall regression: an attack this scanner used to catch is no longer caught.'),
+              (missing.length > 0
+                ? `  Recall regression — no longer caught: ${missing.join(', ')}.\n` +
+                  '  An attack this scanner used to catch now gets past it.'
+                : wanted.length === 0
+                  ? '  This case is recorded as a known miss. If the scanner now detects it, that is\n' +
+                    '  progress — update EXPECTED.json to lock the detection in.'
+                  : `  Detection improved — newly caught: ${extra.join(', ')}.\n` +
+                    '  Nothing was lost. Update EXPECTED.json to lock the new detection in.'),
             );
           }
           expect(actual).toEqual(wanted);
