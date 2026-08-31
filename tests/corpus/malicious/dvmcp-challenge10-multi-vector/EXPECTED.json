@@ -1,0 +1,9 @@
+{
+  "attack": "Challenge 10, Multi-Vector Attack. Chains poisoning, shadowing and exfiltration across several tools; two of the descriptions carry model-directed instructions outright.",
+  "expect": [
+    {
+      "ruleId": "MCP001",
+      "severity": "critical"
+    }
+  ]
+}

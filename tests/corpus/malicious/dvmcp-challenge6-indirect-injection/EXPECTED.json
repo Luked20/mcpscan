@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS. Challenge 6, Indirect Prompt Injection. All four tools declare themselves honestly; the payload arrives inside the DOCUMENTS `read_document` returns at run time. Same content-vs-declaration boundary as `appsecco-indirect-prompt-injection`.",
+  "expect": []
+}

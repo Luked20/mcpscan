@@ -1,0 +1,130 @@
+{
+  "name": "Challenge 6 - Indirect Prompt Injection",
+  "tools": [
+    {
+      "name": "read_document",
+      "description": "Read a document from the system.\n    \n    Args:\n        document_name: Name of the document to read\n    \n    Returns:\n        The contents of the document\n    ",
+      "inputSchema": {
+        "properties": {
+          "document_name": {
+            "title": "Document Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_name"
+        ],
+        "title": "read_documentArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "read_documentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_upload",
+      "description": "Read a document uploaded by a user.\n    \n    Args:\n        upload_name: Name of the uploaded document to read\n    \n    Returns:\n        The contents of the uploaded document\n    ",
+      "inputSchema": {
+        "properties": {
+          "upload_name": {
+            "title": "Upload Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_name"
+        ],
+        "title": "read_uploadArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "read_uploadOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "upload_and_process_document",
+      "description": "Upload and process a document.\n    \n    This tool allows users to upload a document, which is then processed and analyzed.\n    The document will be stored in the user uploads directory.\n    \n    Args:\n        document_name: Name to give the uploaded document\n        content: The text content of the document\n    \n    Returns:\n        A summary and analysis of the document\n    ",
+      "inputSchema": {
+        "properties": {
+          "document_name": {
+            "title": "Document Name",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_name",
+          "content"
+        ],
+        "title": "upload_and_process_documentArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "upload_and_process_documentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_documents",
+      "description": "Search for a keyword across all documents and user uploads.\n    \n    Args:\n        keyword: The keyword to search for\n    \n    Returns:\n        List of documents containing the keyword and relevant excerpts\n    ",
+      "inputSchema": {
+        "properties": {
+          "keyword": {
+            "title": "Keyword",
+            "type": "string"
+          }
+        },
+        "required": [
+          "keyword"
+        ],
+        "title": "search_documentsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "search_documentsOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

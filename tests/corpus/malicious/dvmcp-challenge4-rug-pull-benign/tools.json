@@ -1,0 +1,57 @@
+{
+  "name": "Challenge 4 - Rug Pull Attack",
+  "tools": [
+    {
+      "name": "get_weather_forecast",
+      "description": "Get the weather forecast for a specified city.\n    \n    Args:\n        city: The name of the city to get the forecast for\n    \n    Returns:\n        The weather forecast for the specified city\n    ",
+      "inputSchema": {
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          }
+        },
+        "required": [
+          "city"
+        ],
+        "title": "get_weather_forecastArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "get_weather_forecastOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "reset_challenge",
+      "description": "Reset the challenge state to start over",
+      "inputSchema": {
+        "properties": {},
+        "title": "reset_challengeArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reset_challengeOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

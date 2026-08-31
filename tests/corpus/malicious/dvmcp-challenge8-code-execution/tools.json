@@ -1,0 +1,95 @@
+{
+  "name": "Challenge 8 - Malicious Code Execution",
+  "tools": [
+    {
+      "name": "execute_python_code",
+      "description": "Execute Python code for data analysis.\n    \n    This tool allows you to run Python code for data analysis and processing.\n    \n    Args:\n        code: Python code to execute\n    \n    Returns:\n        The output of the executed code\n    ",
+      "inputSchema": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "execute_python_codeArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "execute_python_codeOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "execute_shell_command",
+      "description": "Execute a shell command for system management.\n    \n    This tool allows you to run shell commands for system management tasks.\n    \n    Args:\n        command: Shell command to execute\n    \n    Returns:\n        The output of the executed command\n    ",
+      "inputSchema": {
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "title": "execute_shell_commandArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "execute_shell_commandOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "analyze_log_file",
+      "description": "Analyze a log file for patterns.\n    \n    This tool reads a log file and analyzes it for common patterns.\n    \n    Args:\n        log_path: Path to the log file to analyze\n    \n    Returns:\n        Analysis of the log file\n    ",
+      "inputSchema": {
+        "properties": {
+          "log_path": {
+            "title": "Log Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "log_path"
+        ],
+        "title": "analyze_log_fileArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "analyze_log_fileOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

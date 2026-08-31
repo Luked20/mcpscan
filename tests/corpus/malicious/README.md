@@ -19,7 +19,9 @@ None of these were written for this project:
 | Source | What it is |
 |---|---|
 | [`invariantlabs-ai/mcp-injection-experiments`](https://github.com/invariantlabs-ai/mcp-injection-experiments) | The PoCs from the research that named tool poisoning |
-| [`harishsg993010/damn-vulnerable-MCP-server`](https://github.com/harishsg993010/damn-vulnerable-MCP-server) | A deliberately vulnerable server built as a teaching corpus |
+| [`harishsg993010/damn-vulnerable-MCP-server`](https://github.com/harishsg993010/damn-vulnerable-MCP-server) | Ten challenges, one attack family each, built as a teaching corpus |
+| [`appsecco/vulnerable-mcp-servers-lab`](https://github.com/appsecco/vulnerable-mcp-servers-lab) | A lab of small servers, each isolating one flaw |
+| [`IntegSec/VulnerableMCP`](https://github.com/IntegSec/VulnerableMCP) | A TypeScript server carrying several poisoning techniques at once |
 
 ## Why a captured `tools/list`, and not the server
 
@@ -29,22 +31,65 @@ installs nothing, downloads nothing, executes no third-party code, and does not
 break when the Python SDK changes its API — while still measuring the actual
 payload rather than a paraphrase of it.
 
-## The two cases that expect nothing
+## Coverage by attack family
 
-Both are load-bearing, and neither is a placeholder.
+The point of capturing whole servers, rather than harvesting strings that look
+like payloads, is that it answers a question a pattern count cannot: *does this
+scanner catch different families of attack, or one family many times?* The
+honest answer today:
 
-**`invariant-rug-pull-benign`** is the clean half of a server that turns
-malicious on its second run. Captured twice, the same server gives a clean list
-and a poisoned one. `--connect` answers *what is this server exposing now*, never
-*what will it expose tomorrow* — a property of snapshots, not a defect to fix
-inside a scanner.
+| Family | Case | Caught by |
+|---|---|---|
+| Direct tool poisoning | `invariant-direct-poisoning`, `dvmcp-challenge2`, `vulnmcp-poisoned-description` | MCP001 |
+| Invisible-character poisoning | `vulnmcp-poisoned-description` | MCP002 |
+| Tool shadowing | `invariant-shadowing` | MCP001 |
+| Multi-vector chain | `dvmcp-challenge10` | MCP001 |
+| Excessive permission scope | `dvmcp-challenge3` | MCP004 |
+| Arbitrary code/command tool | `dvmcp-challenge8` | MCP005 |
+| Command injection in source | `dvmcp-challenge9` | MCP010 |
+| Rug pull | `invariant-rug-pull-*`, `dvmcp-challenge4` | *nothing — by design* |
+| Indirect injection via content | `appsecco-indirect`, `dvmcp-challenge1`, `dvmcp-challenge6` | *nothing — by design* |
+| Malicious tool output | `appsecco-malicious-tool-output`, `dvmcp-challenge7` | *nothing — by design* |
+| Namespace typosquatting | `appsecco-namespace-typosquatting` | *nothing — a real gap* |
 
-**`dvmcp-challenge1-prompt-injection`** is a known miss. The vulnerability is not
-in a tool at all: it lives in MCP **resources** (`internal://credentials`, hidden
-from listing; `notes://{user_id}`, unvalidated input), and this scanner collects
-tools only. No rule of any quality could catch it. The expectation is empty on
-purpose and will start failing the day resources are collected — which is exactly
-when someone should come back and set it. See `docs/SPEC.md` §8.5.
+Rules with no captured attack against them yet: MCP003, MCP006, MCP007, MCP008,
+MCP009 and all four SKILL rules. They have fixtures, but a fixture is written by
+the same person who wrote the rule. Until a captured attack exercises them, their
+recall is unmeasured — which is a weaker claim than "zero", and should be stated
+that way.
+
+## The cases that expect nothing
+
+Eight of the seventeen. None is a placeholder, and each `EXPECTED.json` says why.
+They fall into three groups.
+
+**The attack is not in the declaration.** `dvmcp-challenge1` (credentials in a
+resource), `dvmcp-challenge6` and `appsecco-indirect-prompt-injection` (payload
+inside returned documents), `dvmcp-challenge7` and
+`appsecco-malicious-tool-output` (payload in tool output). Every one of these
+servers declares itself honestly. No declaration rule can catch them, and a rule
+that tried would be guessing about run-time behaviour from a name. This is the
+boundary SPEC §8.7 draws, and these cases are what keep it from drifting.
+
+**The attack is not in this snapshot.** `invariant-rug-pull-benign` and
+`dvmcp-challenge4` are servers captured *before* they turn malicious. `--connect`
+answers *what is this server exposing now*, never *what will it expose tomorrow*
+— a property of snapshots, not a defect to fix inside a scanner. Comparing two
+snapshots is a different feature (`mcpscan monitor`), not a pattern.
+
+**A real gap.** `appsecco-namespace-typosquatting` serves tools whose *names*
+impersonate a well-known server. Nothing about it is unknowable statically; the
+scanner simply has no rule for it yet. It is the one empty expectation here that
+should eventually stop being empty.
+
+## `dvmcp-challenge5` is missing, deliberately
+
+Challenge 5 (tool shadowing inside a single server) could not be captured: it
+calls `FastMCP.resource(..., listed=False)`, a keyword the pinned SDK does not
+accept, so the server will not start. Writing its `tools.json` by hand was the
+obvious workaround and is exactly what this corpus exists to prevent — a
+hand-written payload measures the author's imagination, not an attacker's. It
+stays absent until it can be captured.
 
 ## Adding a case
 

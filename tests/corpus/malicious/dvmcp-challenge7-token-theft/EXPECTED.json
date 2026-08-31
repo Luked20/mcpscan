@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS. Challenge 7, Token Theft. `check_email` and `check_service_status` declare nothing unusual -- the flaw is that the server stores API tokens in plaintext and hands them back in tool OUTPUT. Nothing in the declaration surface is false, so no declaration rule can see it.",
+  "expect": []
+}

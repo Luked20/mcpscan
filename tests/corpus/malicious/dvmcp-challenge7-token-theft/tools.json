@@ -1,0 +1,131 @@
+{
+  "name": "Challenge 7 - Token Theft",
+  "tools": [
+    {
+      "name": "check_email",
+      "description": "Check emails in the specified folder.\n    \n    Args:\n        folder: Email folder to check (inbox, sent, drafts, etc.)\n    \n    Returns:\n        List of emails in the specified folder\n    ",
+      "inputSchema": {
+        "properties": {
+          "folder": {
+            "default": "inbox",
+            "title": "Folder",
+            "type": "string"
+          }
+        },
+        "title": "check_emailArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "check_emailOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "send_email",
+      "description": "Send an email.\n    \n    Args:\n        to: Recipient email address\n        subject: Email subject\n        body: Email body content\n    \n    Returns:\n        Confirmation of email sent\n    ",
+      "inputSchema": {
+        "properties": {
+          "to": {
+            "title": "To",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ],
+        "title": "send_emailArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "send_emailOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "check_service_status",
+      "description": "Check the status of an integrated external service.\n    \n    Args:\n        service_id: ID of the service to check (email_service, cloud_storage, analytics_platform)\n    \n    Returns:\n        Status information for the specified service\n    ",
+      "inputSchema": {
+        "properties": {
+          "service_id": {
+            "title": "Service Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_id"
+        ],
+        "title": "check_service_statusArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "check_service_statusOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "view_system_logs",
+      "description": "View system logs.\n    \n    Args:\n        log_type: Type of logs to view (system, access, error)\n    \n    Returns:\n        Recent log entries of the specified type\n    ",
+      "inputSchema": {
+        "properties": {
+          "log_type": {
+            "default": "system",
+            "title": "Log Type",
+            "type": "string"
+          }
+        },
+        "title": "view_system_logsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "view_system_logsOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "name": "Challenge 9 - Remote Access Control",
+  "tools": [
+    {
+      "name": "ping_host",
+      "description": "Ping a host to check connectivity.\n    \n    Args:\n        host: The hostname or IP address to ping\n        count: Number of ping packets to send (default: 4)\n    \n    Returns:\n        The result of the ping command\n    ",
+      "inputSchema": {
+        "properties": {
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "count": {
+            "default": 4,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host"
+        ],
+        "title": "ping_hostArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "ping_hostOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "traceroute",
+      "description": "Trace the network route to a host.\n    \n    Args:\n        host: The hostname or IP address to trace\n    \n    Returns:\n        The result of the traceroute command\n    ",
+      "inputSchema": {
+        "properties": {
+          "host": {
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ],
+        "title": "tracerouteArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "tracerouteOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "port_scan",
+      "description": "Check if a specific port is open on a host.\n    \n    Args:\n        host: The hostname or IP address to scan\n        port: The port number to check\n    \n    Returns:\n        Whether the port is open or closed\n    ",
+      "inputSchema": {
+        "properties": {
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "port"
+        ],
+        "title": "port_scanArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "port_scanOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "network_diagnostic",
+      "description": "Run comprehensive network diagnostics on a target.\n    \n    This tool runs multiple network diagnostic commands on the specified target.\n    \n    Args:\n        target: The hostname or IP address to diagnose\n        options: Additional options for the diagnostic (optional)\n    \n    Returns:\n        The results of the network diagnostic\n    ",
+      "inputSchema": {
+        "properties": {
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "options": {
+            "default": "",
+            "title": "Options",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "network_diagnosticArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "network_diagnosticOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "view_network_logs",
+      "description": "View network diagnostic logs.\n    \n    Args:\n        log_type: Type of log to view (ping, traceroute, portscan, diagnostic)\n    \n    Returns:\n        The contents of the specified log file\n    ",
+      "inputSchema": {
+        "properties": {
+          "log_type": {
+            "default": "ping",
+            "title": "Log Type",
+            "type": "string"
+          }
+        },
+        "title": "view_network_logsArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "view_network_logsOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -729,6 +729,81 @@ now compares sets, and distinguishes "no longer caught" from "newly caught" in
 the failure message. A harness that cries regression at an improvement trains the
 person reading it to ignore it.
 
+### 8.9 Measuring coverage by attack family
+
+§8.8.1 concluded that payload corpora have to be captured, not harvested,
+because what makes a string a payload is its *position* — a field the agent reads
+as instruction — and a string-literal harvester throws position away. The
+corollary is that the unit of capture is a **server**, not a string:
+
+```
+server → tools/list → ToolDefinition → name + description + inputSchema → rules
+```
+
+DVMCP is built as ten challenges, one attack family each, and only two had been
+captured. Capturing the rest turns a pile of payloads into a coverage question
+worth asking: *does this scanner catch different families, or one family many
+times?* Seven more were frozen (challenge 5 could not be — see the corpus
+README), taking the corpus from 10 cases to 17 and the suite from 1029 tests to
+1043.
+
+What that measured:
+
+| Newly exercised | Rule | Was previously |
+|---|---|---|
+| Excessive permission scope (challenge 3) | MCP004 | untested by any captured attack |
+| Arbitrary code/command tool (challenge 8) | MCP005 | untested by any captured attack |
+| Command injection in source (challenge 9) | MCP010 | **missed entirely** |
+
+Before this, every captured attack in the corpus was caught by MCP001 or MCP002.
+Nine rules had fixtures and no captured attack — and a fixture is written by the
+person who wrote the rule, which is the same tautology `../clean/` was built to
+break on the precision side.
+
+#### 8.9.1 What challenge 9 exposed
+
+Challenge 9 is the most instructive case in the corpus because **its declaration
+is clean and correctly so**. `ping_host`, `traceroute` and `port_scan` take a
+`host` string — exactly what an honest network-diagnostics server declares.
+Scanning `tools/list` alone finds nothing, and should. The defect is one layer
+down:
+
+```python
+command = f"ping -c {count} {host}"
+result  = subprocess.check_output(command, shell=True, ...)
+```
+
+MCP010 missed this. It required the interpolation to sit *inside* the call, and
+here the f-string is built on the previous line, so the shape test saw a bare
+variable. The rule documents that under-detection deliberately: a variable says
+nothing about where its value came from, and firing on it would flag every
+server that assembles its argv in a helper.
+
+That reasoning is sound — but it does not survive `shell=True`. A server that
+assembles an argv *list* has no reason to ask for a shell; passing a list is
+precisely how you avoid one. `shell=True` beside a non-literal is the author
+saying the string is a shell command they built somewhere else.
+
+Measured before shipping, across every legitimate Python MCP server on hand:
+
+| Corpus | `shell=True` occurrences | In executable code |
+|---|---|---|
+| `awslabs/mcp` (whole monorepo) | 6 | **0** |
+| `neo4j`, `supabase`, `firecrawl`, `monday`, `bad-mcp`, `mcpsecurity` | 0 | 0 |
+
+All six awslabs matches are comments recording that the author avoided it — *"Use
+list arguments instead of shell=True for security"* — and masking already keeps
+comments out. So the exception was narrowed to `plain-literal` only, and
+challenge 9 now produces four MCP010/high findings with zero new findings
+anywhere else.
+
+The wider lesson is about what the two scan modes are for. `--connect` answers
+*what does this server claim*; the static source scan answers *what does it do
+with what it is given*. Challenge 9 is clean under the first and dangerous under
+the second, which is why its corpus case ships `server.py` next to `tools.json`.
+Neither mode is a superset of the other, and any future claim about coverage has
+to say which one it is talking about.
+
 ---
 
 ## 9. CLI

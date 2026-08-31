@@ -1,0 +1,4 @@
+harishsg993010/damn-vulnerable-MCP-server@79734c19f5104cd11486c90926d245560f53befa
+  file:    challenges/medium/challenge7/server.py
+  capture: tools/list, verbatim, via --connect against the server as published
+  date:    2026-08-31

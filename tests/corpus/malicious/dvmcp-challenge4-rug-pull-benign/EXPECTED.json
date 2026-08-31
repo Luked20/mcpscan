@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS, and correctly so. Challenge 4, Rug Pull. Captured in its PRE-PULL state: `get_weather_forecast` declares itself honestly and the server only swaps in the poisoned description after a call threshold is crossed. Nothing in this capture is a lie yet. Detecting it needs two captures compared over time, not a pattern -- see the `mcpscan monitor` note in SPEC 8.7. Its value here is as the benign half of that pair.",
+  "expect": []
+}

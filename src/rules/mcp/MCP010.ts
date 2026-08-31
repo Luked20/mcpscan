@@ -351,14 +351,39 @@ function findSubprocessSinks(masked: string, original: string): SinkMatch[] {
     if (!SHELL_TRUE_RE.test(callText)) continue;
 
     const shape = classifyArg(splitArgs(callText)[0] ?? '');
-    if (shape !== 'fstring' && shape !== 'built') continue;
+    // A fixed literal is the one safe shape: `subprocess.run("ls -la", shell=True)`
+    // has nothing interpolated into it. Everything else fires.
+    //
+    // A bare variable (`shape === 'other'`) fires HERE but not in the sinks
+    // above, and the difference is `shell=True` itself. `classifyArg`'s doc
+    // explains why a variable is normally left alone: a well-written server
+    // assembles its argv in a helper, and the variable says nothing about where
+    // the value came from. But a server that assembles an argv *list* has no
+    // reason to ask for a shell — passing a list is precisely how you avoid one.
+    // `shell=True` next to a non-literal is the author saying the string is a
+    // shell command they built somewhere else.
+    //
+    // Measured before shipping: across every legitimate Python MCP server on
+    // hand — the whole `awslabs/mcp` monorepo included — `shell=True` appears
+    // 6 times and *not once in executable code*. All six are comments recording
+    // that the author deliberately avoided it ("Use list arguments instead of
+    // shell=True for security"). Masking keeps those comments out. DVMCP
+    // challenge 9 is what exposed the gap: it builds `command = f"ping -c
+    // {count} {host}"` on one line and runs it on the next, so the f-string is
+    // out of the call and the old shape test saw only a variable.
+    if (shape === 'plain-literal') continue;
+
+    const built =
+      shape === 'fstring' ? 'an f-string'
+      : shape === 'built' ? 'string formatting'
+      : 'a value built elsewhere';
 
     out.push({
       index: m.index,
       length: m[0].length,
       message:
         `Calls \`subprocess.${m[1]}(...)\` with \`shell=True\` and a command built from ` +
-        `${shape === 'fstring' ? 'an f-string' : 'string formatting'}. The string is parsed by a shell, ` +
+        `${built}. The string is parsed by a shell, ` +
         'so an interpolated value containing `;`, `|` or `$()` runs as a separate command.',
       remediation: SHELL_REMEDIATION,
       evidence: truncate(`${m[0]}${callTextRaw.trim().slice(0, 80)}`),

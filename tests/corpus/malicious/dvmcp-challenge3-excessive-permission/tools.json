@@ -1,0 +1,65 @@
+{
+  "name": "Challenge 3 - Excessive Permission Scope",
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read a file from the public directory.\n    \n    Args:\n        filename: Name of the file to read (e.g., 'welcome.txt')\n    \n    Returns:\n        The contents of the file\n    ",
+      "inputSchema": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename"
+        ],
+        "title": "read_fileArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "read_fileOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_files",
+      "description": "Search for files containing a specific keyword in the public directory.\n    \n    Args:\n        keyword: The keyword to search for\n    \n    Returns:\n        List of files containing the keyword\n    ",
+      "inputSchema": {
+        "properties": {
+          "keyword": {
+            "title": "Keyword",
+            "type": "string"
+          }
+        },
+        "required": [
+          "keyword"
+        ],
+        "title": "search_filesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "search_filesOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "attack": "Challenge 3, Excessive Permission Scope. `read_file` takes a free-form `filename` with no allowlist, no base directory and no pattern, so the agent can be steered into reading anything the process can reach -- including the private files the challenge hides beside the public ones.",
+  "expect": [
+    {
+      "ruleId": "MCP004",
+      "severity": "high"
+    }
+  ]
+}

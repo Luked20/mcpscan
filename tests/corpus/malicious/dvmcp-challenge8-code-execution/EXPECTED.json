@@ -1,0 +1,9 @@
+{
+  "attack": "Challenge 8, Malicious Code Execution. `execute_python_code` and `execute_shell_command` each take one unconstrained string that the server runs. Here the declaration IS the vulnerability: a tool that accepts arbitrary code is dangerous no matter how it is implemented.",
+  "expect": [
+    {
+      "ruleId": "MCP005",
+      "severity": "high"
+    }
+  ]
+}

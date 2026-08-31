@@ -1,0 +1,9 @@
+{
+  "attack": "Challenge 9, Remote Access Control. The most instructive case in the corpus: the DECLARATION is clean. `ping_host`, `traceroute` and `port_scan` take a `host` string, exactly as an honest network-diagnostics server would, and scanning tools.json alone finds nothing -- correctly. The defect is in the implementation, where `host` is interpolated into an f-string and handed to `subprocess.check_output(..., shell=True)`. That is why `server.py` sits beside `tools.json` here: this case exists to prove the static source scan and the declaration scan catch different things, and that neither alone is enough.",
+  "expect": [
+    {
+      "ruleId": "MCP010",
+      "severity": "high"
+    }
+  ]
+}
