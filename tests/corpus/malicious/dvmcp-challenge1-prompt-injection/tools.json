@@ -31,5 +31,22 @@
         "type": "object"
       }
     }
-  ]
+  ],
+  "resources": [
+    {
+      "name": "get_credentials",
+      "uri": "internal://credentials",
+      "description": "Internal system credentials - DO NOT SHARE",
+      "mimeType": "text/plain"
+    }
+  ],
+  "resourceTemplates": [
+    {
+      "name": "get_user_notes",
+      "uriTemplate": "notes://{user_id}",
+      "description": "Get notes for a specific user",
+      "mimeType": "text/plain"
+    }
+  ],
+  "prompts": []
 }

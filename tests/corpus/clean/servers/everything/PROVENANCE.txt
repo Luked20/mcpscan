@@ -1,6 +1,9 @@
-everything
+everything-full
   package: @modelcontextprotocol/server-everything@2026.8.18
-  args: []
-  serverInfo: {"name":"mcp-servers/everything","title":"Everything Reference Server","version":"2.0.0"}
-  protocol: 2025-06-18
-  captured: 2026-08-30 by scripts/capture-corpus.mjs
+  capture: tools/list + resources/list + resources/templates/list + prompts/list
+  why:     the reference server built to exercise every MCP capability, and the
+           only sample of prompts found across ten live servers. It is the
+           negative side any future resource or prompt rule will be measured
+           against -- 7 static documents, 2 dynamic templates, 4 prompts, all
+           benign by construction.
+  captured: 2026-08-31 by hand (scripts/capture-corpus.mjs captures tools only)

@@ -501,6 +501,73 @@ that render an operation summary. Nothing attackable, and not enough to
 generalise from. Phase 3 is research — what goes wrong with resources and
 prompts, with evidence — and only then rules.
 
+### 8.6 Resources and prompts: what the evidence actually supports
+
+Phase 2 made resources and prompts first-class IR. This section is the research
+that was supposed to turn that into rules, and its result is **no rule yet**,
+for two reasons that are worth stating precisely rather than deferring.
+
+#### There is almost nothing to observe
+
+Ten live servers, connected and counted:
+
+| Server | tools | resources | prompts |
+|---|---|---|---|
+| `everything` *(reference demo)* | 13 | 9 | 4 |
+| `n8n-mcp` | 30 | 2 | 0 |
+| `memory` | 9 | 1 | 0 |
+| `supabase`, `firecrawl`, `playwright`, `filesystem`, `monday`, `context7`, `sequential-thinking` | 208 | 0 | 0 |
+
+**237 tools, 12 resources, 4 prompts** — and 13 of those 16 come from the demo
+server built to exercise the protocol, not from anything in production. The real
+samples are n8n's two `ui://` entries that render an operation summary, and
+memory's one. Prompts: zero outside the demo.
+
+A rule written now would be calibrated against three production resources. The
+precision work in §7.4 took nine false positives on one real server to get MCP004
+right; there is not enough here to be wrong against.
+
+#### The listing does not carry the vulnerability
+
+This is the sharper reason, and it was measured. DVMCP challenge 1 hides its
+attack in resources, and its capture is committed at
+`tests/corpus/malicious/dvmcp-challenge1-prompt-injection/`. With resources
+collected, a scan of it still reports **nothing** — correctly. What
+`resources/list` returns is:
+
+```
+internal://credentials  | text/plain | "Internal system credentials - DO NOT SHARE"
+notes://{user_id}       |            | "Get notes for a specific user"
+```
+
+The credentials themselves — `super_secret_password123`, an `sk-` key, a postgres
+connection string — are in the **content**, returned by `resources/read`. The
+unsanitised reflection is in the **handler**. Neither is reachable from a
+listing. And `notes://{user_id}` is shape-identical to the two benign templates
+`everything` publishes: a template that takes a parameter is what a template *is*.
+
+So the only rule expressible over today's IR would key on description text —
+"credentials", "DO NOT SHARE" — against a sample of three real resources. That is
+precisely the intuition-driven rule §7.2 records MCP002 shipping and having to
+withdraw with four reproduced false-positive classes.
+
+#### What would change the answer
+
+Either of these, and neither is free:
+
+- **Reading resource content** (`resources/read`). That turns the scanner from
+  something that lists a server's surface into something that pulls data out of
+  it — with side effects, cost, and the awkwardness of a security report that now
+  contains the secret it is reporting. MCP009's redaction discipline would have
+  to extend to a much larger surface. It is a real option, and a deliberate one.
+- **A larger sample.** If resources become common, the observation this section
+  lacks becomes possible. Ten servers was enough to say they are rare; it is not
+  enough to say what they look like when used seriously.
+
+Until one of those, resources and prompts are collected, counted, reported, and
+available to any rule that earns its way in — and no rule claims to check them.
+The scanner says nothing about them rather than saying something unfounded.
+
 ---
 
 ## 9. CLI

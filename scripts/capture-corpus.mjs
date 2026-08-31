@@ -124,11 +124,26 @@ async function capture({ id, pkg, args }) {
     await send(null, 'notifications/initialized', {});
     const list = await send(2, 'tools/list', {});
 
+    // Resources and prompts are the protocol's other two primitives, asked for
+    // only when `initialize` advertised them -- the same rule --connect follows,
+    // and for the same reason: a tools-only server answers "method not found".
+    const caps = init?.capabilities ?? {};
+    let resources = [];
+    let resourceTemplates = [];
+    let prompts = [];
+    if (caps.resources !== undefined) {
+      resources = (await send(3, 'resources/list', {}))?.resources ?? [];
+      resourceTemplates = (await send(4, 'resources/templates/list', {}))?.resourceTemplates ?? [];
+    }
+    if (caps.prompts !== undefined) {
+      prompts = (await send(5, 'prompts/list', {}))?.prompts ?? [];
+    }
+
     // The server's own reported name, not one this script invents -- it becomes
     // the manifest's root `"name"`, which is what makes MCP006 treat it as a
     // *declared* server identity rather than a directory-derived guess.
     const name = init?.serverInfo?.name ?? id;
-    const manifest = { name, tools: list.tools };
+    const manifest = { name, tools: list.tools, resources, resourceTemplates, prompts };
 
     const dir = join(OUT_DIR, id);
     mkdirSync(dir, { recursive: true });
@@ -141,7 +156,10 @@ async function capture({ id, pkg, args }) {
       `  serverInfo: ${JSON.stringify(meta.serverInfo)}\n  protocol: ${meta.protocolVersion}\n` +
       `  captured: ${meta.capturedAt} by scripts/capture-corpus.mjs\n`, 'utf8');
 
-    console.log(`${id}: ${list.tools.length} tool(s) from ${name} -> tests/corpus/clean/servers/${id}/tools.json`);
+    console.log(
+      `${id}: ${list.tools.length} tool(s), ${resources.length + resourceTemplates.length} resource(s), ` +
+      `${prompts.length} prompt(s) from ${name} -> tests/corpus/clean/servers/${id}/tools.json`,
+    );
   } finally {
     clearTimeout(timeout);
     child.kill();
