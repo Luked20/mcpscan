@@ -165,6 +165,12 @@ This snippet lives at
 in this repo, and the Action itself is defined in
 [`action.yml`](action.yml).
 
+The Action **builds mcpscan from the ref you pin** — `@v1` here — rather than
+installing a package from a registry. The code that runs is the code at that
+tag and nothing else, which costs about twenty seconds per run and removes any
+question of what a package name might resolve to later. Runners need Node 20+,
+which the GitHub-hosted ones have.
+
 ## Exit codes
 
 | Code | Meaning |

@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: luked20/mcpscan@v1
+      - uses: Luked20/mcpscan@v1
         id: scan
         # continue-on-error keeps the job alive when the scan finds
         # critical/high findings (exit 1), so the SARIF upload below still

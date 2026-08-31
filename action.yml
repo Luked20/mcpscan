@@ -11,7 +11,7 @@ inputs:
     required: false
     default: 'high'
   sarif-file:
-    description: 'Path of the generated SARIF file'
+    description: 'Path of the generated SARIF file, relative to the workspace'
     required: false
     default: 'mcpscan.sarif'
 outputs:
@@ -21,23 +21,49 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    # github.action_ref is documented as unsafe to reference directly inside
-    # `run:` for a composite action — GitHub's own docs say to pass it through
-    # `env:` instead. It resolves to the tag the *consumer* used, e.g. `v1` for
-    # `uses: luked20/mcpscan@v1`, which is also a valid npm version range: npm
-    # (via node-semver) strips a leading `v` before parsing, so `mcpscan@v1`
-    # resolves the same as `mcpscan@1` — the highest published 1.x.y. It is
-    # NOT a valid range when the consumer pins a branch name or a commit SHA;
-    # in that case npm fails loudly ("No matching version"), which is the
-    # correct behavior — better than silently resolving to the wrong version.
-    - shell: bash
+    # Builds mcpscan from the ref the consumer pinned, rather than installing a
+    # package from npm.
+    #
+    # The previous version ran `npx --yes mcpscan@${{ github.action_ref }}`,
+    # which had two problems. It did not work — `mcpscan` is not published, so
+    # every run failed with "No matching version". And if anyone ever published
+    # a package under that name, this action would have downloaded and executed
+    # *their* code with the consumer's workflow permissions. Building from
+    # `github.action_path` — the checkout of this repository at the pinned ref —
+    # means the code that runs is the code the consumer pinned, and nothing else.
+    #
+    # `npm ci` needs the devDependencies (tsup, typescript) because `dist/` is
+    # not committed. That is a deliberate trade: ~20s per run, against the
+    # standing risk of a committed build artifact silently drifting from source.
+    - name: Build mcpscan from the pinned ref
+      shell: bash
       env:
-        MCPSCAN_ACTION_REF: ${{ github.action_ref }}
+        MCPSCAN_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        cd "$MCPSCAN_ACTION_PATH"
+        npm ci
+        npm run build
+
+    # Runs in the consumer's workspace, so `path` and `sarif-file` are relative
+    # to their repository, not to the action's checkout.
+    #
+    # No `set -e` guard around the scan itself: mcpscan exits 1 when it finds
+    # something at or above `fail-on`, and that exit code has to reach the step
+    # so the job reflects it. See the README on why 1 and 2 are not the same.
+    - name: Scan
+      shell: bash
+      env:
+        MCPSCAN_ACTION_PATH: ${{ github.action_path }}
         MCPSCAN_PATH: ${{ inputs.path }}
         MCPSCAN_FAIL_ON: ${{ inputs['fail-on'] }}
         MCPSCAN_SARIF_FILE: ${{ inputs['sarif-file'] }}
       run: |
-        set -euo pipefail
-        version="${MCPSCAN_ACTION_REF:-latest}"
-        npx --yes "mcpscan@${version}" "${MCPSCAN_PATH}" \
-          --format sarif --output "${MCPSCAN_SARIF_FILE}" --fail-on "${MCPSCAN_FAIL_ON}"
+        set -uo pipefail
+        node "$MCPSCAN_ACTION_PATH/dist/cli.js" "$MCPSCAN_PATH" \
+          --format sarif --output "$MCPSCAN_SARIF_FILE" --fail-on "$MCPSCAN_FAIL_ON"
+        status=$?
+        # 0 = clean, 1 = findings at or above fail-on, 2 = the scan could not run.
+        # All three are forwarded verbatim; a workflow that treats 2 as 0 would
+        # report a broken scan as a clean one.
+        exit "$status"
