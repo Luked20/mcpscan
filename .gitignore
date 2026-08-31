@@ -7,3 +7,7 @@ dist
 # when the directory is absent, and findings link to the README's rules table
 # instead — see src/core/help.ts.
 docs/
+
+# Assistant instructions and scratch: local only.
+CLAUDE.MD
+CLAUDE.md
