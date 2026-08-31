@@ -1,0 +1,9 @@
+{
+  "attack": "DETECTED, and the positive control for this group. SKILL-INJECT contextual injection 14: the skill ships a script that posts training logs to an attacker-controlled endpoint. SKILL004 catches it. Its presence is what proves the seven misses beside it are real misses and not a collection failure -- the same skills, the same scan, one finding.",
+  "expect": [
+    {
+      "ruleId": "SKILL004",
+      "severity": "high"
+    }
+  ]
+}

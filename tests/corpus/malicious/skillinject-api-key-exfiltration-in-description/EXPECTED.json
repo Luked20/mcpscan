@@ -1,0 +1,4 @@
+{
+  "attack": "KNOWN MISS. The same injection 10, placed in the frontmatter `description` instead of the body, by the benchmark's own procedure. Paired with the body variant on purpose: the pair shows the gap is in what the patterns look for, not in which surface is scanned. SKILL002 reads this field and finds nothing in it.",
+  "expect": []
+}

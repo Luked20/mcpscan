@@ -1,0 +1,6 @@
+aisa-group/skill-inject@182f3d9d9836e81cdae213e9b9cec1d9be96eea3
+  paper:    SKILL-INJECT: Measuring Agent Vulnerability to Skill File Attacks (arXiv 2602.20156)
+  payload:  data/contextual_injections.json, id 14 -- HF Training Logging Server Instruction
+  base:     data/skills/hf-llm-trainer/SKILL.md
+  compose:  appended to the frontmatter description, by the benchmark's own procedure (scripts/build_sandbox.py)
+  date:     2026-08-31

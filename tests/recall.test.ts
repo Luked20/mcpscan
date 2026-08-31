@@ -121,13 +121,22 @@ describe('recall harness — captured attacks (SPEC §8.4)', () => {
 });
 
 describe('recall harness — the shape of the result', () => {
-  it('every attack payload reaches the scanner only through a live capture', () => {
-    // The point worth preserving. A static scan of the repositories these came
-    // from finds nothing at all: the payload is a Python docstring until the
-    // server runs, and only then becomes a tool description.
+  it('every case carries a captured artifact, never a hand-written one', () => {
+    // The point worth preserving: nothing in this corpus was authored here.
+    // A case is either a server's `tools/list` as it actually served it — a
+    // static scan of those repositories finds nothing, because the payload is a
+    // Python docstring until the server runs — or a `SKILL.md` composed from a
+    // third-party payload by that project's own injection procedure.
     for (const name of cases) {
-      const manifest = readFileSync(join(MALICIOUS_ROOT, name, 'tools.json'), 'utf8');
-      expect(JSON.parse(manifest)).toHaveProperty('tools');
+      const dir = join(MALICIOUS_ROOT, name);
+      const manifest = join(dir, 'tools.json');
+      if (existsSync(manifest)) {
+        expect(JSON.parse(readFileSync(manifest, 'utf8'))).toHaveProperty('tools');
+        continue;
+      }
+      // A skill case: the captured artifact is the skill itself.
+      expect(existsSync(join(dir, 'SKILL.md'))).toBe(true);
+      expect(readFileSync(join(dir, 'SKILL.md'), 'utf8').startsWith('---')).toBe(true);
     }
   });
 
