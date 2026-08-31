@@ -43,12 +43,16 @@ export function formatPretty(findings: Finding[], opts: PrettyOptions): string {
   const c = (fn: (s: string) => string, s: string) => (opts.color ? fn(s) : s);
   const {
     filesExamined, filesWithTools, tools, servers, skills, sourceFiles,
-    unreadable, suppressed, baselined, liveTools,
+    resources, prompts, unreadable, suppressed, baselined, liveTools,
   } = opts.stats;
 
   const header =
     `mcpscan · ${filesExamined} file(s) scanned · ${filesWithTools} with tools · ` +
     `${tools} tool(s) · ${servers} server(s) · ${skills} skill(s) · ${sourceFiles} source file(s)` +
+    // Only when present: most servers expose neither, and two permanent zeroes
+    // in every header would be noise rather than information.
+    (resources > 0 ? ` · ${resources} resource(s)` : '') +
+    (prompts > 0 ? ` · ${prompts} prompt(s)` : '') +
     (unreadable > 0 ? ` · ${unreadable} unreadable` : '') +
     // Suppressed and baselined findings are dropped from the report, so these
     // counters are the only place a reader learns they existed. A silent drop

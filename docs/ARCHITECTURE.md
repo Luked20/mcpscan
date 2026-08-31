@@ -116,7 +116,8 @@ que sobe um processo. Ambas estão marcadas na tabela.
 | `skill-md.ts` | Lê um `SKILL.md` (frontmatter YAML + corpo) → `SkillDefinition` |
 | `source.ts` | Lê `.ts`/`.js`/`.py` → `SourceFile` (só classifica a linguagem e guarda o texto) |
 | `suppression.ts` | Acha os comentários `mcpscan-disable-next-line` em qualquer arquivo |
-| `connect.ts` | **Não lê arquivo**: sobe um servidor MCP, fala o handshake e pergunta as tools dele (`--connect`) |
+| `mcp-primitives.ts` | Lê `resources`/`resourceTemplates` e `prompts` de um documento → as outras duas primitivas do MCP |
+| `connect.ts` | **Não lê arquivo**: sobe um servidor MCP, fala o handshake e pergunta tools, resources e prompts (`--connect`) |
 
 **Como o `index.ts` decide o destino de cada arquivo:**
 
@@ -164,6 +165,8 @@ O campo **`appliesTo`** diz o que a regra quer receber:
 | `tool` | uma tool por vez | MCP001, MCP002, MCP003, MCP005 |
 | `server` | uma entrada de config por vez | MCP007, MCP009 |
 | `skill` | um `SKILL.md` por vez | SKILL001–SKILL004 |
+| `resource` | um resource ou template por vez | *(nenhuma ainda — ver SPEC §8.5)* |
+| `prompt` | um prompt por vez | *(nenhuma ainda)* |
 | `sourceFile` | um arquivo de código por vez | MCP008, MCP010 |
 | `target` | **o scan inteiro** | MCP004, MCP006 |
 

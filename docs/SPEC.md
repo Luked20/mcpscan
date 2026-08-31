@@ -471,12 +471,35 @@ MCP has three primitives. This scanner reads one:
 | **Prompts** | **no** |
 
 That is not a missing rule, it is two thirds of the protocol going unexamined,
-and it was found by a third-party corpus rather than by reading the spec. The
-order that follows from it: collect resources and prompts into the IR first, as
-first-class subjects alongside tools; then research what actually goes wrong with
-each; then write rules only for the patterns with evidence behind them. Inventing
-`MCP011` before knowing what resources get attacked with would repeat the mistake
-§7.2 records for MCP002.
+and it was found by a third-party corpus rather than by reading the spec.
+
+**Collection is done; rules are not, on purpose.** `ResourceDefinition` and
+`PromptDefinition` are first-class IR alongside `ToolDefinition`, with the same
+`origin`/`loc()` contract, and `Rule` accepts `appliesTo: 'resource'` and
+`'prompt'`. They are read from a manifest (`collectResources`,
+`collectPrompts`) and from `--connect`, and counted in `stats`. **No rule
+consumes them yet**, which is the point: inventing `MCP011` before knowing what
+resources actually get attacked with would repeat the mistake §7.2 records for
+MCP002 — a rule written from intuition that came back from review with four
+reproduced classes of false positive.
+
+`--connect` asks for resources and prompts **only when `initialize` advertised
+the capability**. Calling unconditionally would earn a "method not found" from
+every tools-only server — which is most of them — and force a choice between
+reporting a failure that is not one and swallowing errors that are.
+
+| Server | tools | resources | prompts |
+|---|---|---|---|
+| `supabase` | 29 | 0 | 0 |
+| `firecrawl` | 27 | 0 | 0 |
+| `playwright` | 24 | 0 | 0 |
+| `n8n-mcp` | 30 | **2** | 0 |
+
+The one real sample so far is n8n's, and it is informative precisely because it
+is dull: two `ui://n8n-mcp/...` entries with `mimeType: text/html;profile=mcp-app`
+that render an operation summary. Nothing attackable, and not enough to
+generalise from. Phase 3 is research — what goes wrong with resources and
+prompts, with evidence — and only then rules.
 
 ---
 

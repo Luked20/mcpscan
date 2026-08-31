@@ -16,7 +16,7 @@ interface ToolShorthand {
 }
 
 const makeTarget = (tools: ToolDefinition[]): ScanTarget =>
-  ({ root: '.', servers: [], tools, skills: [], sourceFiles: [], suppressions: [], unreadable: [], filesExamined: 1 });
+  ({ root: '.', servers: [], tools, resources: [], prompts: [], skills: [], sourceFiles: [], suppressions: [], unreadable: [], filesExamined: 1 });
 
 /**
  * MCP004 is `appliesTo: 'target'` — its scope exemption is a property of the

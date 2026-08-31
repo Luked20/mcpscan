@@ -8,7 +8,7 @@ const at = (file: string, line: number, column: number): SourceLocation =>
   ({ file, line, column, endLine: line, endColumn: column + 1 });
 const tool = (name: string): ToolDefinition => ({ name, origin: loc, loc: () => loc });
 const target = (tools: ToolDefinition[]): ScanTarget =>
-  ({ root: '.', servers: [], tools, skills: [], sourceFiles: [], suppressions: [], unreadable: [], filesExamined: 1 });
+  ({ root: '.', servers: [], tools, resources: [], prompts: [], skills: [], sourceFiles: [], suppressions: [], unreadable: [], filesExamined: 1 });
 
 const noisy: Rule = {
   id: 'TEST001', title: 'noisy', severity: 'critical', confidence: 'low',

@@ -3,12 +3,13 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, dirname, extname, relative, resolve } from 'node:path';
 import { collectManifest } from './mcp-manifest.js';
 import { collectMcpConfig } from './mcp-config.js';
+import { collectResources, collectPrompts } from './mcp-primitives.js';
 import { collectSkill } from './skill-md.js';
 import { collectSource, isTestFile } from './source.js';
 import { collectSuppressions } from './suppression.js';
 import type {
-  ScanTarget, ServerDefinition, SkillDefinition, SourceFile, Suppression, ToolDefinition,
-  UnreadableFile,
+  PromptDefinition, ResourceDefinition, ScanTarget, ServerDefinition, SkillDefinition, SourceFile,
+  Suppression, ToolDefinition, UnreadableFile,
 } from '../core/types.js';
 
 const IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'];
@@ -41,6 +42,8 @@ export async function discover(root: string): Promise<ScanTarget> {
     : [abs];
 
   const tools: ToolDefinition[] = [];
+  const resources: ResourceDefinition[] = [];
+  const prompts: PromptDefinition[] = [];
   const servers: ServerDefinition[] = [];
   const skills: SkillDefinition[] = [];
   const sourceFiles: SourceFile[] = [];
@@ -90,6 +93,10 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
 
     tools.push(...collectManifest(rel, text));
+    // The other two MCP primitives, read from the same document -- a captured
+    // `resources/list` or `prompts/list` has the same shape as a tool manifest.
+    resources.push(...collectResources(rel, text));
+    prompts.push(...collectPrompts(rel, text));
     // These files are already being read for the manifest pass above; this is
     // an additional collector pass over the same text, not a second file read.
     if (CONFIG_BASENAMES.has(basename(file))) {
@@ -100,5 +107,5 @@ export async function discover(root: string): Promise<ScanTarget> {
     }
   }
 
-  return { root: base, servers, tools, skills, sourceFiles, suppressions, unreadable, filesExamined };
+  return { root: base, servers, tools, resources, prompts, skills, sourceFiles, suppressions, unreadable, filesExamined };
 }

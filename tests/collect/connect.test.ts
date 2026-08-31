@@ -35,7 +35,7 @@ describe('readMessages', () => {
 
 describe('toolsFromListResult', () => {
   const result = toolsFromListResult(
-    [{ name: 'read_file', description: 'Reads a file.' }],
+    { tools: [{ name: 'read_file', description: 'Reads a file.' }] },
     'fake-server',
   );
 
@@ -167,5 +167,76 @@ describe('--connect does not turn one server into two', () => {
     const result = await scan({ path: MANIFEST_DIR, failOn: 'none', connect: FAKE });
     expect(result.stats.liveTools).toBe(3);
     expect(result.stats.tools).toBeGreaterThan(3);
+  });
+});
+
+describe('--connect collects all three MCP primitives', () => {
+  // MCP has three: tools, resources and prompts. Until the recall corpus
+  // measured it, this scanner collected the first only -- not a missing rule,
+  // but two thirds of the protocol going unexamined. See docs/SPEC.md §8.5.
+  const FULL = 'node tests/fixtures/connect/server.mjs';
+  const TOOLS_ONLY = 'node tests/fixtures/connect/tools-only.mjs';
+
+  it('reads resources, resource templates and prompts', async () => {
+    const result = await connectAndListTools({ command: FULL });
+    if (typeof result === 'string') throw new Error(`expected a capture, got: ${result}`);
+
+    expect(result.resources.map((r) => r.uri)).toEqual(['config://settings', 'notes://{user_id}']);
+    expect(result.prompts.map((p) => p.name)).toEqual(['summarise']);
+  });
+
+  it('tells a template apart from a plain resource', async () => {
+    const result = await connectAndListTools({ command: FULL });
+    if (typeof result === 'string') throw new Error(result);
+
+    const [plain, template] = result.resources;
+    expect(plain!.isTemplate).toBeUndefined();
+    expect(template!.isTemplate).toBe(true);
+    // The placeholder is the point: a template is a parameterised surface.
+    expect(template!.uri).toContain('{user_id}');
+  });
+
+  it('keeps the fields a future rule will need', async () => {
+    const result = await connectAndListTools({ command: FULL });
+    if (typeof result === 'string') throw new Error(result);
+
+    expect(result.resources[0]).toMatchObject({
+      uri: 'config://settings', name: 'settings', mimeType: 'application/json', provenance: 'live',
+    });
+    expect(result.prompts[0]).toMatchObject({ name: 'summarise', provenance: 'live' });
+    expect(result.prompts[0]!.arguments).toEqual([
+      { name: 'document', description: 'The text to summarise.', required: true },
+    ]);
+  });
+
+  it('gives them real positions inside the returned document', async () => {
+    const result = await connectAndListTools({ command: FULL });
+    if (typeof result === 'string') throw new Error(result);
+    expect(result.resources[0]!.origin.line).toBeGreaterThan(1);
+    expect(result.prompts[0]!.loc(['description']).line).toBeGreaterThan(1);
+  });
+
+  it('does not ask a tools-only server for what it never advertised', async () => {
+    // That server answers -32601 to anything else. Asking anyway would turn
+    // every ordinary server into a reported failure.
+    const result = await connectAndListTools({ command: TOOLS_ONLY });
+    if (typeof result === 'string') throw new Error(`expected a capture, got: ${result}`);
+
+    expect(result.tools).toHaveLength(1);
+    expect(result.resources).toEqual([]);
+    expect(result.prompts).toEqual([]);
+  });
+
+  it('counts them in the scan stats', async () => {
+    const result = await scan({ path: 'tests/fixtures/empty', failOn: 'none', connect: FULL });
+    expect(result.stats.resources).toBe(2);
+    expect(result.stats.prompts).toBe(1);
+  });
+
+  it('a server with only resources still counts as something to scan', async () => {
+    // hasSubjects() decides exit 2. A server that exposes no tools but does
+    // expose resources has plenty to look at, and must not read as "nothing here".
+    const result = await scan({ path: 'tests/fixtures/empty', failOn: 'none', connect: FULL });
+    expect(result.exitCode).not.toBe(2);
   });
 });

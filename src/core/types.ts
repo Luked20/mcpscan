@@ -56,6 +56,56 @@ export interface ToolDefinition {
   loc(path: readonly (string | number)[]): SourceLocation;
 }
 
+/**
+ * An MCP **resource** — the second of the protocol's three primitives, and the
+ * one this scanner was blind to until `tests/corpus/malicious/` measured it.
+ *
+ * DVMCP challenge 1 hides its entire vulnerability here rather than in a tool:
+ * an `internal://credentials` resource kept out of the listing, and a
+ * `notes://{user_id}` template that interpolates caller input into a URI. No
+ * rule over `ToolDefinition` could ever have seen either.
+ *
+ * A resource and a *resource template* are separate calls in the protocol
+ * (`resources/list` and `resources/templates/list`) but the same kind of thing
+ * to a rule, so they share this shape and are told apart by `isTemplate`. The
+ * distinction matters: a template's `uri` contains `{placeholders}` a caller
+ * fills, which is a parameterised surface, while a plain resource's is fixed.
+ */
+export interface ResourceDefinition {
+  /** The `uri`, or the `uriTemplate` when `isTemplate` is set. */
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+  /** From `resources/templates/list`: the uri carries `{placeholders}`. */
+  isTemplate?: boolean;
+  serverName?: string;
+  provenance?: 'static' | 'live';
+  origin: SourceLocation;
+  /** Same contract as `ToolDefinition.loc`: segments, relative to this resource. */
+  loc(path: readonly (string | number)[]): SourceLocation;
+}
+
+/**
+ * An MCP **prompt** — the third primitive. A stored, named message template the
+ * user can invoke, whose text goes into the model's context.
+ *
+ * Collected for the same reason as resources: it is part of the protocol's
+ * attack surface and was going unexamined. What specifically goes wrong with
+ * prompts is deliberately not assumed here — see `docs/SPEC.md` §8.5 on why
+ * collection comes before rules.
+ */
+export interface PromptDefinition {
+  name: string;
+  description?: string;
+  arguments?: Array<{ name: string; description?: string; required?: boolean }>;
+  serverName?: string;
+  provenance?: 'static' | 'live';
+  origin: SourceLocation;
+  /** Same contract as `ToolDefinition.loc`: segments, relative to this prompt. */
+  loc(path: readonly (string | number)[]): SourceLocation;
+}
+
 export interface ServerDefinition {
   name: string;
   transport: 'stdio' | 'http' | 'sse' | 'unknown';
@@ -133,6 +183,10 @@ export interface ScanTarget {
   root: string;
   servers: ServerDefinition[];
   tools: ToolDefinition[];   // all tools, from any origin
+  /** MCP resources and resource templates, from a manifest or from `--connect`. */
+  resources: ResourceDefinition[];
+  /** MCP prompts, from a manifest or from `--connect`. */
+  prompts: PromptDefinition[];
   skills: SkillDefinition[];
   sourceFiles: SourceFile[];
   /** Suppression comments found in any scanned file, defective ones included. */
@@ -162,7 +216,8 @@ export interface ScanContext {
   helpBaseUri: string;
 }
 
-export type RuleSubjectKind = 'tool' | 'server' | 'skill' | 'sourceFile' | 'target';
+export type RuleSubjectKind =
+  | 'tool' | 'resource' | 'prompt' | 'server' | 'skill' | 'sourceFile' | 'target';
 
 /** What a rule returns. The engine fills in the rest from the rule's metadata. */
 export type PartialFinding = Omit<Finding,
@@ -185,7 +240,9 @@ interface RuleMeta {
  * where the engine turned the exception into a false-clean. The union moves the error to typecheck.
  */
 export type Rule =
-  | (RuleMeta & { appliesTo: 'tool';       check(subject: ToolDefinition,   ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'tool';       check(subject: ToolDefinition,     ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'resource';   check(subject: ResourceDefinition, ctx: ScanContext): PartialFinding[] })
+  | (RuleMeta & { appliesTo: 'prompt';     check(subject: PromptDefinition,   ctx: ScanContext): PartialFinding[] })
   | (RuleMeta & { appliesTo: 'server';     check(subject: ServerDefinition, ctx: ScanContext): PartialFinding[] })
   | (RuleMeta & { appliesTo: 'skill';      check(subject: SkillDefinition,  ctx: ScanContext): PartialFinding[] })
   | (RuleMeta & { appliesTo: 'sourceFile'; check(subject: SourceFile,       ctx: ScanContext): PartialFinding[] })

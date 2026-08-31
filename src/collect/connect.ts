@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { collectManifest } from './mcp-manifest.js';
-import type { ToolDefinition } from '../core/types.js';
+import { collectPrompts, collectResources } from './mcp-primitives.js';
+import type { PromptDefinition, ResourceDefinition, ToolDefinition } from '../core/types.js';
 
 /**
  * `--connect` — start an MCP server and ask it for its tools (docs/SPEC.md §9).
@@ -47,7 +48,15 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 
 interface JsonRpcMessage {
   id?: number;
-  result?: { serverInfo?: { name?: string }; tools?: unknown[] };
+  result?: {
+    serverInfo?: { name?: string };
+    /** Advertised at `initialize`; only what appears here gets asked for. */
+    capabilities?: { resources?: unknown; prompts?: unknown };
+    tools?: unknown[];
+    resources?: unknown[];
+    resourceTemplates?: unknown[];
+    prompts?: unknown[];
+  };
   error?: { code?: number; message?: string };
 }
 
@@ -59,6 +68,8 @@ export interface ConnectOptions {
 
 export interface ConnectResult {
   tools: ToolDefinition[];
+  resources: ResourceDefinition[];
+  prompts: PromptDefinition[];
   /** The name the server reported at `initialize`, not one this scanner invents. */
   serverName: string;
   /** The synthetic document the tools were collected from, for the report. */
@@ -93,25 +104,48 @@ export function readMessages(buffer: string): { messages: JsonRpcMessage[]; rest
   return { messages, rest };
 }
 
+/** What the server answered, one array per list call that was made. */
+export interface ListedPrimitives {
+  tools?: unknown[];
+  resources?: unknown[];
+  resourceTemplates?: unknown[];
+  prompts?: unknown[];
+}
+
 /**
- * Turns a `tools/list` result into `ToolDefinition`s by rendering it as the
- * manifest it would be and handing that to the existing collector.
+ * Turns the listed primitives into IR by rendering them as the manifest they
+ * would be and handing that to the file collectors.
  *
- * Reusing `collectManifest` rather than mapping the array by hand is what
- * gives live tools real line and column numbers — positions inside the
- * document the server just returned — and it means a live tool and a
- * file-based tool are the same shape to every rule, with no second code path
- * to keep in step.
+ * Reusing those rather than mapping the arrays by hand is what gives live
+ * subjects real line and column numbers — positions inside the document the
+ * server just returned — and it means a live tool and a file-based tool are the
+ * same shape to every rule, with no second code path to keep in step. The same
+ * now holds for resources and prompts.
  */
-export function toolsFromListResult(reported: unknown[], serverName: string): ConnectResult {
+export function toolsFromListResult(listed: ListedPrimitives, serverName: string): ConnectResult {
   // Distinctive on purpose: it must never collide with a real path, because
   // MCP006 treats one file as one deployment.
   const file = `connect:${serverName}/tools.json`;
-  const text = JSON.stringify({ name: serverName, tools: reported }, null, 2);
+  const text = JSON.stringify({
+    name: serverName,
+    tools: listed.tools ?? [],
+    resources: listed.resources ?? [],
+    resourceTemplates: listed.resourceTemplates ?? [],
+    prompts: listed.prompts ?? [],
+  }, null, 2);
+
   // Marked live so MCP006 never compares this capture against a manifest found
   // in the same scan — most likely the same server, seen twice.
-  const tools = collectManifest(file, text).map((t) => ({ ...t, provenance: 'live' as const }));
-  return { tools, serverName, file };
+  const live = <T extends { provenance?: 'static' | 'live' }>(xs: T[]): T[] =>
+    xs.map((x) => ({ ...x, provenance: 'live' as const }));
+
+  return {
+    tools: live(collectManifest(file, text)),
+    resources: live(collectResources(file, text)),
+    prompts: live(collectPrompts(file, text)),
+    serverName,
+    file,
+  };
 }
 
 /**
@@ -188,7 +222,37 @@ export async function connectAndListTools(opts: ConnectOptions): Promise<Connect
     const tools = list.result?.tools;
     if (!Array.isArray(tools)) return `${opts.command} answered tools/list without a "tools" array`;
 
-    return toolsFromListResult(tools, init.result?.serverInfo?.name ?? opts.command);
+    // Resources and prompts are optional halves of the protocol, so they are
+    // asked for only when `initialize` advertised them. Calling unconditionally
+    // would earn a "method not found" from every tools-only server and force a
+    // choice between reporting a failure that is not one and swallowing errors
+    // that are — the capabilities block exists precisely to avoid that.
+    const capabilities = init.result?.capabilities ?? {};
+    const listed: ListedPrimitives = { tools };
+
+    if (capabilities.resources !== undefined) {
+      const res = await Promise.race([send(3, 'resources/list', {}), failed]);
+      if (typeof res === 'string') return res;
+      if (res.error) return `${opts.command} advertised resources but rejected resources/list: ${res.error.message ?? 'unknown error'}`;
+      listed.resources = Array.isArray(res.result?.resources) ? res.result.resources : [];
+
+      // Templates are a separate call, and are where a parameterised URI lives.
+      // Not every server implements it even when it serves resources, so a
+      // rejection here is tolerated rather than fatal.
+      const tpl = await Promise.race([send(4, 'resources/templates/list', {}), failed]);
+      if (typeof tpl !== 'string' && !tpl.error && Array.isArray(tpl.result?.resourceTemplates)) {
+        listed.resourceTemplates = tpl.result.resourceTemplates;
+      }
+    }
+
+    if (capabilities.prompts !== undefined) {
+      const prompts = await Promise.race([send(5, 'prompts/list', {}), failed]);
+      if (typeof prompts === 'string') return prompts;
+      if (prompts.error) return `${opts.command} advertised prompts but rejected prompts/list: ${prompts.error.message ?? 'unknown error'}`;
+      listed.prompts = Array.isArray(prompts.result?.prompts) ? prompts.result.prompts : [];
+    }
+
+    return toolsFromListResult(listed, init.result?.serverInfo?.name ?? opts.command);
   } finally {
     child.kill();
   }

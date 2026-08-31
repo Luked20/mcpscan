@@ -23,6 +23,23 @@ const TOOLS = [
   },
 ];
 
+// The other two primitives. `notes://{user_id}` is a resource *template*: its
+// uri carries a placeholder a caller fills, which is the shape DVMCP challenge 1
+// used to hide its whole vulnerability where no tool rule could see it.
+const RESOURCES = [
+  { uri: 'config://settings', name: 'settings', description: 'Server settings.', mimeType: 'application/json' },
+];
+const RESOURCE_TEMPLATES = [
+  { uriTemplate: 'notes://{user_id}', name: 'notes', description: 'Notes for a user.' },
+];
+const PROMPTS = [
+  {
+    name: 'summarise',
+    description: 'Summarise a document.',
+    arguments: [{ name: 'document', description: 'The text to summarise.', required: true }],
+  },
+];
+
 let buffer = '';
 process.stdin.on('data', (chunk) => {
   buffer += chunk.toString('utf8');
@@ -34,9 +51,21 @@ process.stdin.on('data', (chunk) => {
     let msg;
     try { msg = JSON.parse(line); } catch { continue; }
     if (msg.method === 'initialize') {
-      reply(msg.id, { protocolVersion: '2025-06-18', capabilities: {}, serverInfo: { name: 'fake-server', version: '1.0.0' } });
+      reply(msg.id, {
+        protocolVersion: '2025-06-18',
+        // Advertised, so the scanner asks for them. A server that does not
+        // advertise is never asked -- see connect.ts.
+        capabilities: { tools: {}, resources: {}, prompts: {} },
+        serverInfo: { name: 'fake-server', version: '1.0.0' },
+      });
     } else if (msg.method === 'tools/list') {
       reply(msg.id, { tools: TOOLS });
+    } else if (msg.method === 'resources/list') {
+      reply(msg.id, { resources: RESOURCES });
+    } else if (msg.method === 'resources/templates/list') {
+      reply(msg.id, { resourceTemplates: RESOURCE_TEMPLATES });
+    } else if (msg.method === 'prompts/list') {
+      reply(msg.id, { prompts: PROMPTS });
     }
   }
 });

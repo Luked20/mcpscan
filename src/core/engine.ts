@@ -63,6 +63,8 @@ export function runRules(target: ScanTarget, rules: Rule[], helpBaseUri: string)
     let a: Attempt;
     switch (rule.appliesTo) {
       case 'tool': a = attempt(target.tools, (s) => rule.check(s, ctx)); break;
+      case 'resource': a = attempt(target.resources, (s) => rule.check(s, ctx)); break;
+      case 'prompt': a = attempt(target.prompts, (s) => rule.check(s, ctx)); break;
       case 'server': a = attempt(target.servers, (s) => rule.check(s, ctx)); break;
       case 'skill': a = attempt(target.skills, (s) => rule.check(s, ctx)); break;
       case 'sourceFile': a = attempt(target.sourceFiles, (s) => rule.check(s, ctx)); break;

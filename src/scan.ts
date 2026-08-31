@@ -41,6 +41,10 @@ export interface ScanStats {
   /** MCP servers declared in client config files. */
   servers: number;
   skills: number;
+  /** MCP resources and resource templates -- the protocol's second primitive. */
+  resources: number;
+  /** MCP prompts -- the protocol's third primitive. */
+  prompts: number;
   /** Source files handed to the source rules -- MCP008 has no other input. */
   sourceFiles: number;
   /** Name-declared files no collector could parse. */
@@ -61,15 +65,15 @@ export interface ScanResult {
 }
 
 const emptyStats = (): ScanStats =>
-  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, sourceFiles: 0, unreadable: 0, suppressed: 0, baselined: 0, liveTools: 0 });
+  ({ filesExamined: 0, filesWithTools: 0, tools: 0, servers: 0, skills: 0, resources: 0, prompts: 0, sourceFiles: 0, unreadable: 0, suppressed: 0, baselined: 0, liveTools: 0 });
 
 const fail = (error: string, findings: Finding[] = [], stats = emptyStats()): ScanResult =>
   ({ findings, exitCode: 2, stats, error });
 
 /** Nothing discovered isn't "clean": it's "pointed at the wrong place". */
 function hasSubjects(t: ScanTarget): boolean {
-  return t.tools.length > 0 || t.skills.length > 0 ||
-    t.servers.length > 0 || t.sourceFiles.length > 0;
+  return t.tools.length > 0 || t.skills.length > 0 || t.servers.length > 0 ||
+    t.sourceFiles.length > 0 || t.resources.length > 0 || t.prompts.length > 0;
 }
 
 /** Returns the active rule set, or an error message if the selection makes no sense. */
@@ -119,6 +123,8 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       if (typeof connected === 'string') return fail(connected);
       liveFile = connected.file;
       target.tools.push(...connected.tools);
+      target.resources.push(...connected.resources);
+      target.prompts.push(...connected.prompts);
     }
 
     const stats: ScanStats = {
@@ -127,6 +133,8 @@ export async function scan(opts: ScanOptions): Promise<ScanResult> {
       tools: target.tools.length,
       servers: target.servers.length,
       skills: target.skills.length,
+      resources: target.resources.length,
+      prompts: target.prompts.length,
       sourceFiles: target.sourceFiles.length,
       unreadable: target.unreadable.length,
       suppressed: 0,
